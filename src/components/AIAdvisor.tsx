@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import type { SensorPacket, ClassificationResult, ChannelState, ChannelName } from '../types';
-import { CHANNELS, CHANNEL_LABELS } from '../config';
+import { CHANNELS } from '../types';
+import { CHANNEL_LABELS } from '../config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
