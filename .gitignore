@@ -5,3 +5,7 @@ dist/
 
 # Local hardware config — keep credentials out of git
 hardwareCode.local.ino
+
+# Environment variables — never commit secrets
+.env
+.env.local

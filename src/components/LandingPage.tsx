@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useAuth, useClerk, UserButton } from '@clerk/clerk-react';
 
 interface Props {
   onEnter: () => void;
 }
 
 export default function LandingPage({ onEnter }: Props) {
+  const { isSignedIn } = useAuth();
+  const { openSignIn, openSignUp } = useClerk();
   // ── Boot sequence ─────────────────────────────────────────────────────────
   const [showScanLine, setShowScanLine] = useState(false);
   const [nameStarted, setNameStarted] = useState(false);
@@ -239,6 +242,60 @@ export default function LandingPage({ onEnter }: Props) {
             animation: 'scanSweep 0.65s cubic-bezier(0.25, 0, 0.75, 1) forwards',
           }} />
         )}
+
+        {/* ── Auth nav — fixed top-right ───────────────────────────────── */}
+        <div style={{
+          position: 'fixed', top: 18, right: 24, zIndex: 100,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          {isSignedIn ? (
+            <>
+              <button
+                onClick={onEnter}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                  padding: '7px 16px', borderRadius: 6, cursor: 'pointer',
+                  background: 'rgba(34,197,94,0.12)',
+                  border: '1px solid rgba(34,197,94,0.4)',
+                  color: '#22c55e',
+                }}
+              >
+                DASHBOARD →
+              </button>
+              <UserButton appearance={{ elements: { avatarBox: 'w-7 h-7' } }} />
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => openSignIn()}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11, fontWeight: 500, letterSpacing: '0.05em',
+                  padding: '7px 14px', borderRadius: 6, cursor: 'pointer',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: '#94a3b8',
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => openSignUp()}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
+                  padding: '7px 14px', borderRadius: 6, cursor: 'pointer',
+                  background: 'rgba(34,197,94,0.1)',
+                  border: '1px solid rgba(34,197,94,0.35)',
+                  color: '#22c55e',
+                }}
+              >
+                Sign Up
+              </button>
+            </>
+          )}
+        </div>
 
         {/* Content */}
         <div style={{ position: 'relative', zIndex: 1 }}>

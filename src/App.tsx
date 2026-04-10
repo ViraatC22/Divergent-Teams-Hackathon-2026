@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import gsap from 'gsap';
+import { useUser } from '@clerk/clerk-react';
 import type {
   SensorPacket, ChannelName, AppSnapshot, PeriodicState,
   AlertEntry, ClassificationEntry, ClassificationLabel,
@@ -17,6 +18,7 @@ import { computeForecast } from './engine/regression';
 import { computeHealthScore } from './engine/healthScore';
 import { WSManager } from './connection/websocket';
 import { Simulator } from './connection/simulator';
+import { useMetrics } from './hooks/useMetrics';
 
 import { StatusBar } from './components/StatusBar';
 import { SensorCard } from './components/SensorCard';
@@ -28,6 +30,8 @@ import { HistoricalChart } from './components/HistoricalChart';
 import { AlertFeed } from './components/AlertFeed';
 import { SessionSummary } from './components/SessionSummary';
 import { AIAdvisor } from './components/AIAdvisor';
+
+const SERVER = 'http://localhost:3001';
 
 // ─── Connection type ──────────────────────────────────────────────────────────
 type ConnStatus = 'connected' | 'reconnecting' | 'disconnected';
@@ -70,6 +74,52 @@ function buildRecommendation(label: ClassificationLabel, kv: Record<string, stri
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const sessionStart = useRef(Date.now());
+
+  // ── Auth & metrics ────────────────────────────────────────────────────────
+  const { user } = useUser();
+  const { logMetric, createNotification } = useMetrics(user?.id);
+
+  // ── Profile sync (frontend-driven, no webhook needed) ────────────────────
+  const profileSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!user || profileSyncedRef.current) return;
+    profileSyncedRef.current = true;
+    fetch(`${SERVER}/api/sync-profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id:        user.id,
+        email:     user.primaryEmailAddress?.emailAddress ?? '',
+        full_name: user.fullName ?? '',
+        username:  user.username ?? '',
+        image_url: user.imageUrl ?? '',
+      }),
+    }).catch(() => {}); // non-critical
+  }, [user]);
+
+  // ── Session start/end metrics ────────────────────────────────────────────
+  useEffect(() => {
+    logMetric('session_start', { page: 'dashboard' });
+    const t0 = Date.now();
+
+    const handleUnload = () => {
+      const duration = Math.round((Date.now() - t0) / 1000);
+      navigator.sendBeacon(
+        `${SERVER}/api/metrics`,
+        JSON.stringify({ userId: user?.id, metricType: 'session_end', metricValue: { duration_seconds: duration } }),
+      );
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      logMetric('session_end', { duration_seconds: Math.round((Date.now() - t0) / 1000) });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Notification flags (once per session) ────────────────────────────────
+  const sentCriticalNotifRef   = useRef(false);
+  const sentTempThreshNotifRef = useRef(false);
+  const sentSoilThreshNotifRef = useRef(false);
 
   // Mutable refs (no re-render needed)
   const bufferRef = useRef<Record<ChannelName, number[]>>({
@@ -219,6 +269,44 @@ export default function App() {
     });
   }, []); // no deps — reads from prev state
 
+  // ── Notification: first critical alert in session ────────────────────────
+  useEffect(() => {
+    if (sentCriticalNotifRef.current) return;
+    const firstCritical = snapshot.alerts.find(a => a.severity === 'critical');
+    if (!firstCritical) return;
+    sentCriticalNotifRef.current = true;
+    createNotification(
+      'Critical Alert Detected',
+      `${firstCritical.label}: ${firstCritical.recommendation}`,
+      'critical',
+    );
+  }, [snapshot.alerts, createNotification]);
+
+  // ── Notification: threshold crossing predicted ────────────────────────────
+  useEffect(() => {
+    const tempMins = periodic.temperatureForecast?.thresholdCrossingMinutes;
+    if (!sentTempThreshNotifRef.current && tempMins !== null && tempMins !== undefined) {
+      sentTempThreshNotifRef.current = true;
+      createNotification(
+        'Threshold Warning',
+        `Temperature projected critical in ~${tempMins} minutes`,
+        'warning',
+      );
+    }
+  }, [periodic.temperatureForecast?.thresholdCrossingMinutes, createNotification]);
+
+  useEffect(() => {
+    const soilMins = periodic.soilForecast?.thresholdCrossingMinutes;
+    if (!sentSoilThreshNotifRef.current && soilMins !== null && soilMins !== undefined) {
+      sentSoilThreshNotifRef.current = true;
+      createNotification(
+        'Threshold Warning',
+        `Soil moisture projected critical in ~${soilMins} minutes`,
+        'warning',
+      );
+    }
+  }, [periodic.soilForecast?.thresholdCrossingMinutes, createNotification]);
+
   // ── Stale detection ───────────────────────────────────────────────────────
   useEffect(() => {
     staleTimerRef.current = setInterval(() => {
@@ -270,10 +358,22 @@ export default function App() {
     });
   }, [processPacket]);
 
+  // ── Export callbacks (log metrics + create notification) ─────────────────
+  const handleExportCSV = useCallback((rowCount: number) => {
+    logMetric('submission', { export_type: 'csv', rows: rowCount });
+    createNotification('Export Ready', `CSV exported with ${rowCount} data points`, 'info');
+  }, [logMetric, createNotification]);
+
+  const handleExportJSON = useCallback(() => {
+    logMetric('submission', { export_type: 'json' });
+    createNotification('Export Ready', 'JSON session data exported', 'info');
+  }, [logMetric, createNotification]);
+
   // ── Simulation toggle ─────────────────────────────────────────────────────
   const toggleSimulation = useCallback(() => {
     setSimulationMode(prev => {
       const next = !prev;
+      logMetric('feature_usage', { feature: 'simulation_mode', enabled: next });
       if (next) {
         // Stop WS, start simulator
         wsManagerRef.current?.destroy();
@@ -323,6 +423,7 @@ export default function App() {
           isStale={snapshot.isStale}
           healthScore={snapshot.healthScore}
           classification={snapshot.classification}
+          user={user ?? null}
         />
         </div>
 
@@ -410,6 +511,8 @@ export default function App() {
             classificationLog={snapshot.classificationLog}
             allPackets={snapshot.allPackets}
             correlationInsights={periodic.correlationInsights}
+            onExportCSV={handleExportCSV}
+            onExportJSON={handleExportJSON}
           />
 
           </div>{/* end lower sections */}

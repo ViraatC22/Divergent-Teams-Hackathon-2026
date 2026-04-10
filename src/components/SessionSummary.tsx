@@ -18,11 +18,14 @@ interface Props {
   classificationLog:           ClassificationEntry[];
   allPackets:                  SensorPacket[];
   correlationInsights:         string[];
+  onExportCSV?:                (rowCount: number) => void;
+  onExportJSON?:               () => void;
 }
 
 export const SessionSummary: React.FC<Props> = ({
   sessionStart, totalPackets, channelStates,
   sessionClassificationCounts, classificationLog, allPackets, correlationInsights,
+  onExportCSV, onExportJSON,
 }) => {
   const elapsed    = Date.now() - sessionStart;
   const topFinding = correlationInsights[0] ?? 'No significant patterns detected yet.';
@@ -100,10 +103,16 @@ export const SessionSummary: React.FC<Props> = ({
 
         {/* Export */}
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => exportJSON(allPackets, classificationLog)}>
+          <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => {
+            exportJSON(allPackets, classificationLog);
+            onExportJSON?.();
+          }}>
             <Download size={12} /> JSON
           </Button>
-          <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => exportCSV(allPackets)}>
+          <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => {
+            exportCSV(allPackets);
+            onExportCSV?.(allPackets.length);
+          }}>
             <Download size={12} /> CSV
           </Button>
         </div>

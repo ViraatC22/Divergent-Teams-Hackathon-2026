@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
+import { UserButton } from '@clerk/clerk-react';
 import { Wifi, WifiOff, Loader2, Pencil, Check, X } from 'lucide-react';
 import type { ConnectionStatus, ClassificationResult } from '../types';
+import { NotificationBell } from './NotificationBell';
 import { CLASSIFICATION_COLORS } from '../config';
 import { formatTimeAgo } from '../utils/formatters';
 import { healthColor } from '../engine/healthScore';
@@ -21,12 +23,14 @@ interface Props {
   isStale: boolean;
   healthScore: number;
   classification: ClassificationResult;
+  user: { id: string; firstName: string | null; username: string | null; primaryEmailAddress: { emailAddress: string } | null } | null;
 }
 
 export const StatusBar: React.FC<Props> = ({
   connectionStatus, wsUrl, onWsUrlChange, onConnect,
   simulationMode, onToggleSimulation,
   lastPacketTime, isStale, healthScore, classification,
+  user,
 }) => {
   const [editing, setEditing]   = useState(false);
   const [editUrl, setEditUrl]   = useState(wsUrl);
@@ -217,6 +221,29 @@ export const StatusBar: React.FC<Props> = ({
       >
         {simulationMode ? 'Stop Sim' : 'Simulate'}
       </Button>
+
+      {user && (
+        <>
+          <Separator orientation="vertical" className="h-5" />
+
+          {/* Notification bell */}
+          <NotificationBell userId={user.id} />
+
+          {/* User name */}
+          <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
+            {user.firstName ?? user.username ?? user.primaryEmailAddress?.emailAddress?.split('@')[0]}
+          </span>
+
+          {/* Clerk avatar + sign-out menu */}
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: 'w-7 h-7',
+              },
+            }}
+          />
+        </>
+      )}
     </header>
   );
 };
