@@ -38,7 +38,7 @@ export function parsePacket(raw: string): SensorPacket | null {
     if ([temperature, pressure, altitude, accX, accY, accZ, tiltX, tiltY, soilRaw].some(isNaN)) return null;
 
     const vibrationRMS = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
-    const soilPercent  = Math.round((soilRaw / 1023) * 100);
+    const soilPercent  = Math.round((soilRaw / 4095) * 100);
 
     return {
       timestamp: Date.now(),
