@@ -3,7 +3,7 @@ import type { ChannelName, ClassificationLabel } from './types';
 export const WS_DEFAULT_URL = 'ws://localhost:3001';
 export const BUFFER_SIZE = 150;
 export const RECONNECT_INTERVAL_MS = 3000;
-export const STALE_THRESHOLD_MS = 6000;
+export const STALE_THRESHOLD_MS = 12000;
 
 export const ANOMALY_Z_THRESHOLD = 2;
 export const ANOMALY_UI_PERSIST_MS = 10000;
