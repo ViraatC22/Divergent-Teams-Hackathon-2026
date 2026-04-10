@@ -7,12 +7,14 @@
 #include <Adafruit_MPU6050.h>
 
 // --- Network Settings ---
-const char* ssid     = "ATTSreepada";
-const char* password = "Sreep@d@0415";
+// Replace with your actual WiFi credentials before flashing. Do NOT commit real values.
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // --- ngrok URL ---
-// IMPORTANT: Use the 'https' URL provided by ngrok and ensure it ends with /data
-const char* serverName = "https://3058-2601-cb-8000-5d0-e186-9a7b-1297-a8b5.ngrok-free.app/data";
+// Run `ngrok http 3001` and paste the https URL here each time ngrok restarts.
+// Free-tier ngrok generates a new URL on every restart — update and reflash when it changes.
+const char* serverName = "https://doily-plant-gigolo.ngrok-free.dev/data";
 
 Adafruit_BMP280 bmp; 
 Adafruit_MPU6050 mpu;

@@ -2,3 +2,6 @@ node_modules/
 dist/
 .DS_Store
 *.local
+
+# Local hardware config — keep credentials out of git
+hardwareCode.local.ino
