@@ -56,13 +56,13 @@ function makeInitialSnapshot(): AppSnapshot {
 function buildRecommendation(label: ClassificationLabel, kv: Record<string, string>): string {
   switch (label) {
     case 'Drought Risk':
-      return `Temperature at ${kv.temp ?? '?'} with soil contact at ${kv.soil ?? '?'} — irrigate this zone immediately`;
+      return `Soil moisture at ${kv.soil ?? '?'}% — switch to drip irrigation in this zone to cut water use by up to 50% and reduce runoff`;
     case 'Pest Alert':
-      return `Vibration of ${kv.vibration ?? '?'} detected at ${kv.altitude ?? '?'} elevation — inspect for pest activity`;
+      return `Ground vibration at ${kv.vibration ?? '?'} g near ${kv.altitude ?? '?'} m elevation — consider targeted biological pest control to avoid broad-spectrum pesticide runoff`;
     case 'Terrain Warning':
-      return `Tilt at ${kv.tiltX ?? '?'} / ${kv.tiltY ?? '?'} — terrain erosion risk, avoid heavy equipment`;
+      return `Tilt ${kv.tiltX ?? '?'}° / ${kv.tiltY ?? '?'}° detected — plant cover crops on this slope to prevent erosion and sequester carbon`;
     default:
-      return 'Field conditions nominal';
+      return 'Field conditions nominal — maintain current sustainable practices';
   }
 }
 
@@ -294,7 +294,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
 
-          {/* ── AI Crop Advisor ── */}
+          {/* ── Farm Sustainability Advisor ── */}
           <AIAdvisor
             lastPacket={snapshot.lastPacket}
             classification={snapshot.classification}

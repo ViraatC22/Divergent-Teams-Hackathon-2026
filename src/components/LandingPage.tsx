@@ -1,159 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader } from './ui/card';
+import { Separator } from './ui/separator';
+import { Badge } from './ui/badge';
 
 interface Props {
   onEnter: () => void;
 }
 
 export default function LandingPage({ onEnter }: Props) {
-  // ── Boot sequence ─────────────────────────────────────────────────────────
-  const [showScanLine, setShowScanLine] = useState(false);
-  const [nameStarted, setNameStarted] = useState(false);
-  const [displayedName, setDisplayedName] = useState('');
-  const [nameDone, setNameDone] = useState(false);
-  const [taglineVisible, setTaglineVisible] = useState(false);
-  const [subtitleVisible, setSubtitleVisible] = useState(false);
   const [ctaVisible, setCtaVisible] = useState(false);
-
-  // ── Canvas ────────────────────────────────────────────────────────────────
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({ x: 0, y: 0 });
-
-  // ── Live stats ────────────────────────────────────────────────────────────
   const [stats, setStats] = useState({ temp: 22.4, soil: 61, health: 84 });
   const statsActiveRef = useRef(false);
-
-  // ── Scroll visibility ─────────────────────────────────────────────────────
   const sectionRefs = useRef<(HTMLElement | null)[]>(Array(6).fill(null));
   const [visibleSections, setVisibleSections] = useState<Set<number>>(new Set());
 
-  // Boot: scan line then typewriter
   useEffect(() => {
-    const t1 = setTimeout(() => setShowScanLine(true), 300);
-    const t2 = setTimeout(() => setNameStarted(true), 900);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    const t = setTimeout(() => setCtaVisible(true), 600);
+    return () => clearTimeout(t);
   }, []);
 
-  // Typewriter
-  useEffect(() => {
-    if (!nameStarted) return;
-    const FULL = 'AGRISWARM';
-    let i = 0;
-    const id = setInterval(() => {
-      i++;
-      setDisplayedName(FULL.slice(0, i));
-      if (i >= FULL.length) { clearInterval(id); setNameDone(true); }
-    }, 80);
-    return () => clearInterval(id);
-  }, [nameStarted]);
-
-  // Chain reveals after name
-  useEffect(() => {
-    if (!nameDone) return;
-    const t1 = setTimeout(() => setTaglineVisible(true), 200);
-    const t2 = setTimeout(() => setSubtitleVisible(true), 500);
-    const t3 = setTimeout(() => setCtaVisible(true), 900);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [nameDone]);
-
-  // Canvas — topographic contour lines + floating particles
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
-    let raf: number;
-    let t = 0;
-
-    type Particle = { x: number; y: number; vx: number; vy: number; label: string; alpha: number };
-    const LABELS = ['23.4°C', '87%', '1013hPa', '0.23g', '198m', '61%', '24.1°C', '992hPa', '0.41g', '201m', '58%', '19.7°C', '1.2g', '47%', '185m', '33.8°C', '0.08g', '77%'];
-    let particles: Particle[] = [];
-
-    const init = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      particles = Array.from({ length: 20 }, (_, i) => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.22,
-        vy: (Math.random() - 0.5) * 0.22,
-        label: LABELS[i % LABELS.length],
-        alpha: Math.random() * 0.065 + 0.018,
-      }));
-    };
-
-    init();
-    const onResize = () => init();
-    window.addEventListener('resize', onResize);
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      t += 0.0014;
-
-      const mx = (mouseRef.current.x / (canvas.width || 1) - 0.5);
-      const my = (mouseRef.current.y / (canvas.height || 1) - 0.5);
-
-      // Topographic contour lines
-      const N = 24;
-      for (let li = 0; li < N; li++) {
-        const baseY = (li / N) * canvas.height + my * 18;
-        const isMajor = li % 6 === 0;
-        ctx.globalAlpha = isMajor ? 0.09 : 0.045;
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = isMajor ? 0.8 : 0.4;
-        ctx.beginPath();
-        for (let x = 0; x <= canvas.width; x += 5) {
-          const xd = x + mx * 14;
-          const y = baseY
-            + Math.sin(xd * 0.0026 + t + li * 0.38) * (22 + li * 1.4)
-            + Math.sin(xd * 0.0063 + t * 1.45 + li * 0.85) * 9
-            + Math.sin(t * 0.55 + li * 0.22) * 5;
-          x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      }
-
-      // Floating data particles
-      ctx.font = '10px "JetBrains Mono", monospace';
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < -90) p.x = canvas.width + 90;
-        if (p.x > canvas.width + 90) p.x = -90;
-        if (p.y < -20) p.y = canvas.height + 20;
-        if (p.y > canvas.height + 20) p.y = -20;
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = '#22c55e';
-        ctx.fillText(p.label, p.x, p.y);
-      }
-
-      ctx.globalAlpha = 1;
-      raf = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
-  }, []);
-
-  // Mouse parallax
-  useEffect(() => {
-    const fn = (e: MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; };
-    window.addEventListener('mousemove', fn);
-    return () => window.removeEventListener('mousemove', fn);
-  }, []);
-
-  // Live stats random walk
   useEffect(() => {
     const id = setInterval(() => {
       if (!statsActiveRef.current) return;
       setStats(p => ({
-        temp: +Math.max(18, Math.min(35, p.temp + (Math.random() - 0.5) * 0.4)).toFixed(1),
-        soil: Math.round(Math.max(30, Math.min(90, p.soil + (Math.random() - 0.5) * 1.5))),
+        temp:   +Math.max(18, Math.min(35, p.temp + (Math.random() - 0.5) * 0.4)).toFixed(1),
+        soil:   Math.round(Math.max(30, Math.min(90, p.soil + (Math.random() - 0.5) * 1.5))),
         health: Math.round(Math.max(55, Math.min(98, p.health + (Math.random() - 0.5) * 2))),
       }));
     }, 1600);
     return () => clearInterval(id);
   }, []);
 
-  // Intersection observer for scroll reveals
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
       for (const e of entries) {
@@ -169,387 +47,249 @@ export default function LandingPage({ onEnter }: Props) {
   }, []);
 
   const setRef = (i: number) => (el: HTMLElement | null) => { sectionRefs.current[i] = el; };
-
-  const vis = (i: number, delayMs = 0): React.CSSProperties => ({
+  const vis = (i: number, delay = 0): React.CSSProperties => ({
     opacity: visibleSections.has(i) ? 1 : 0,
-    transform: visibleSections.has(i) ? 'translateY(0)' : 'translateY(32px)',
-    transition: `opacity 0.7s ${delayMs}ms ease, transform 0.7s ${delayMs}ms ease`,
+    transform: visibleSections.has(i) ? 'translateY(0)' : 'translateY(24px)',
+    transition: `opacity 0.65s ${delay}ms ease, transform 0.65s ${delay}ms ease`,
   });
-
-  const healthColor = stats.health > 70 ? '#22c55e' : stats.health > 40 ? '#f59e0b' : '#ef4444';
-  const soilColor = stats.soil > 40 ? '#22c55e' : '#f59e0b';
 
   return (
     <>
       <style>{`
-        @keyframes scanSweep {
-          0%   { top: -3px; opacity: 1; }
-          100% { top: 100vh; opacity: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+        /* ── Blob animations ── */
+        @keyframes blobFloat0 {
+          0%, 100% { transform: translate(0px,  0px)  scale(1);    }
+          33%       { transform: translate(30px, -20px) scale(1.05); }
+          66%       { transform: translate(-20px, 15px) scale(0.97); }
         }
-        @keyframes ctaGlow {
-          0%, 100% { box-shadow: 0 0 18px rgba(34,197,94,0.14); }
-          50%       { box-shadow: 0 0 36px rgba(34,197,94,0.32), 0 0 72px rgba(34,197,94,0.07); }
+        @keyframes blobFloat1 {
+          0%, 100% { transform: translate(0px, 0px)   scale(1);    }
+          33%       { transform: translate(-25px, 20px) scale(1.08); }
+          66%       { transform: translate(18px, -12px) scale(0.95); }
         }
+        @keyframes blobFloat2 {
+          0%, 100% { transform: translate(0px, 0px)  scale(1);    }
+          50%       { transform: translate(20px, 25px) scale(1.04); }
+        }
+        @keyframes blobFloat3 {
+          0%, 100% { transform: translate(0px,   0px) scale(1);    }
+          40%       { transform: translate(-15px, -20px) scale(1.06); }
+          70%       { transform: translate(10px,  10px)  scale(0.98); }
+        }
+
+        .lp-blob-wrap {
+          position: absolute;
+          top: -120px; left: 50%;
+          transform: translateX(-50%);
+          width: 700px; height: 520px;
+          pointer-events: none;
+          filter: blur(2px);
+        }
+        .lp-blob-layer {
+          position: absolute;
+          border-radius: 50%;
+          mix-blend-mode: screen;
+        }
+        .lp-blob-0 { width:400px;height:360px;top:50px;left:80px;  background:radial-gradient(ellipse at 40% 40%,#3b82f6 0%,#1d4ed8 40%,transparent 70%); animation:blobFloat0 9s  ease-in-out infinite;         opacity:0.9; }
+        .lp-blob-1 { width:340px;height:320px;top:30px;left:210px; background:radial-gradient(ellipse at 55% 45%,#22c55e 0%,#15803d 35%,transparent 68%); animation:blobFloat1 11s ease-in-out infinite;         opacity:0.85; }
+        .lp-blob-2 { width:300px;height:280px;top:70px;left:340px; background:radial-gradient(ellipse at 50% 50%,#ec4899 0%,#9d174d 40%,transparent 68%); animation:blobFloat2 13s ease-in-out infinite;         opacity:0.8; }
+        .lp-blob-3 { width:220px;height:220px;top:90px;left:150px; background:radial-gradient(ellipse at 50% 50%,#a855f7 0%,#6b21a8 50%,transparent 72%); animation:blobFloat3 8s  ease-in-out infinite;         opacity:0.75; }
+        .lp-blob-4 { width:260px;height:200px;top:110px;left:360px;background:radial-gradient(ellipse at 40% 60%,#f97316 0%,#c2410c 50%,transparent 72%); animation:blobFloat0 15s ease-in-out infinite reverse; opacity:0.7; }
+        .lp-blob-5 { width:200px;height:180px;top:40px;left:270px; background:radial-gradient(ellipse at 50% 50%,#06b6d4 0%,#0e7490 55%,transparent 68%); animation:blobFloat1 10s ease-in-out infinite reverse; opacity:0.65; }
+        .lp-blob-fade {
+          position:absolute; bottom:0; left:0; right:0; height:220px;
+          background: linear-gradient(to bottom, transparent, #09090b);
+          pointer-events:none;
+        }
+
+        /* ── CTA pulse ── */
+        @keyframes ctaPulse {
+          0%,100% { box-shadow: 0 0 0 0 transparent; }
+          50%      { box-shadow: 0 0 18px rgba(255,255,255,0.04); }
+        }
+        .lp-cta-btn { animation: ctaPulse 3s ease-in-out infinite; }
+        .lp-cta-btn:hover .lp-arrow { transform: translateX(4px); }
+        .lp-arrow { display:inline-block; transition: transform 0.15s ease; }
+
+        /* ── Scroll hint ── */
         @keyframes scrollBounce {
-          0%, 100% { transform: translateX(-50%) translateY(0);   opacity: 0.35; }
-          50%       { transform: translateX(-50%) translateY(7px); opacity: 0.6;  }
+          0%,100% { transform:translateX(-50%) translateY(0);   opacity:0.2; }
+          50%      { transform:translateX(-50%) translateY(6px); opacity:0.45; }
         }
-        @keyframes cursorBlink {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0; }
+        .lp-scroll-hint {
+          position:absolute; bottom:36px; left:50%;
+          font-family:'JetBrains Mono',monospace;
+          font-size:9px; letter-spacing:0.18em;
+          color:#3f3f46;
+          animation: scrollBounce 2.4s ease-in-out infinite;
         }
-        .lp-cta {
-          transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.4s ease, transform 0.4s ease !important;
-        }
-        .lp-cta:hover {
-          background: rgba(34,197,94,0.2) !important;
-          box-shadow: 0 0 40px rgba(34,197,94,0.3) !important;
-        }
-        .lp-cta:hover .lp-arrow {
-          transform: translateX(5px);
-        }
-        .lp-arrow {
-          display: inline-block;
-          transition: transform 0.15s ease-out;
-        }
-        .tech-badge {
-          transition: color 0.15s ease, border-color 0.15s ease !important;
-        }
-        .tech-badge:hover {
-          color: #94a3b8 !important;
-          border-color: #3a4551 !important;
-        }
+
+        /* ── Section reveal ── */
+        .lp-mono { font-family:'JetBrains Mono',monospace; }
       `}</style>
 
-      <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative', overflowX: 'hidden', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: '#09090b', color: '#e4e4e7', fontFamily: "'DM Sans', sans-serif", overflowX: 'hidden' }}>
 
-        {/* Canvas background */}
-        <canvas
-          ref={canvasRef}
-          style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}
-        />
+        {/* ── HERO ──────────────────────────────────────────────────────── */}
+        <section style={{
+          minHeight: '100vh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          textAlign: 'center', padding: '0 24px',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {/* Blob — only color on the page */}
+          <div className="lp-blob-wrap">
+            <div className="lp-blob-layer lp-blob-0" />
+            <div className="lp-blob-layer lp-blob-1" />
+            <div className="lp-blob-layer lp-blob-2" />
+            <div className="lp-blob-layer lp-blob-3" />
+            <div className="lp-blob-layer lp-blob-4" />
+            <div className="lp-blob-layer lp-blob-5" />
+            <div className="lp-blob-fade" />
+          </div>
 
-        {/* Scan line */}
-        {showScanLine && (
-          <div style={{
-            position: 'fixed', left: 0, right: 0, height: 2,
-            background: 'linear-gradient(90deg, transparent 0%, rgba(34,197,94,0.5) 20%, #22c55e 50%, rgba(34,197,94,0.5) 80%, transparent 100%)',
-            boxShadow: '0 0 10px rgba(34,197,94,0.6)',
-            zIndex: 20, pointerEvents: 'none',
-            animation: 'scanSweep 0.65s cubic-bezier(0.25, 0, 0.75, 1) forwards',
-          }} />
-        )}
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 180 }}>
 
-        {/* Content */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-
-          {/* ── HERO ─────────────────────────────────────────────────── */}
-          <section style={{
-            minHeight: '100vh',
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            textAlign: 'center',
-            padding: '80px 24px',
-            position: 'relative',
-          }}>
-            {/* Ambient glow behind title */}
-            <div style={{
-              position: 'absolute', top: '46%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 720, height: 480,
-              background: 'radial-gradient(ellipse at center, rgba(34,197,94,0.055) 0%, transparent 65%)',
-              pointerEvents: 'none',
-            }} />
-
-            {/* AGRISWARM */}
+            {/* Title */}
             <h1 style={{
-              fontFamily: "'JetBrains Mono', monospace",
+              fontFamily: "'DM Sans', sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(46px, 9.5vw, 96px)',
-              letterSpacing: '0.12em',
-              color: '#e2e8f0',
-              lineHeight: 1,
-              margin: '0 0 30px',
-              textShadow: '0 0 80px rgba(34,197,94,0.1)',
-              opacity: nameStarted ? 1 : 0,
-              transition: 'opacity 0.2s',
+              fontSize: 'clamp(56px, 11vw, 110px)',
+              letterSpacing: '0.04em',
+              color: '#f4f4f5',
+              lineHeight: 0.95,
+              margin: '0 0 14px',
             }}>
-              {displayedName}
-              <span style={{
-                color: '#22c55e',
-                animation: nameDone ? 'none' : 'cursorBlink 0.75s ease-in-out infinite',
-                opacity: nameDone ? 0 : 1,
-                transition: 'opacity 0.4s 0.6s',
-              }}>▌</span>
+              AGRISWARM
             </h1>
 
-            {/* Tagline */}
-            <p style={{
-              fontFamily: 'DM Sans, sans-serif',
-              fontSize: 'clamp(17px, 2.6vw, 23px)',
-              fontWeight: 400,
-              color: '#8da3b8',
-              maxWidth: 520,
-              lineHeight: 1.45,
-              margin: '0 0 16px',
-              opacity: taglineVisible ? 1 : 0,
-              transform: taglineVisible ? 'translateY(0)' : 'translateY(14px)',
-              transition: 'opacity 0.55s ease, transform 0.55s ease',
+            {/* Subtitle */}
+            <p className="lp-mono" style={{
+              fontSize: 11, letterSpacing: '0.22em',
+              color: '#52525b', textTransform: 'uppercase', margin: '0 0 52px',
             }}>
-              One robot. Five senses. One AI brain that knows the farm.
+              Farm Sustainability Platform
             </p>
 
-            {/* Subtitle */}
-            <p style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 12,
-              color: '#344d62',
-              letterSpacing: '0.04em',
-              margin: '0 0 56px',
-              opacity: subtitleVisible ? 1 : 0,
-              transform: subtitleVisible ? 'translateY(0)' : 'translateY(8px)',
+            {/* CTA — shadcn Button with outline variant */}
+            <div style={{
+              opacity: ctaVisible ? 1 : 0,
+              transform: ctaVisible ? 'translateY(0)' : 'translateY(10px)',
               transition: 'opacity 0.5s ease, transform 0.5s ease',
             }}>
-              Real-time agricultural intelligence from a $50 sensor platform
-            </p>
-
-            {/* CTA button */}
-            <button
-              className="lp-cta"
-              onClick={onEnter}
-              style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: '0.07em',
-                padding: '15px 38px',
-                borderRadius: 8,
-                cursor: 'pointer',
-                background: 'rgba(34,197,94,0.1)',
-                border: '1px solid rgba(34,197,94,0.4)',
-                color: '#22c55e',
-                opacity: ctaVisible ? 1 : 0,
-                transform: ctaVisible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.96)',
-                animation: ctaVisible ? 'ctaGlow 2.5s ease-in-out infinite' : 'none',
-              }}
-            >
-              ENTER DASHBOARD <span className="lp-arrow">→</span>
-            </button>
-
-            {/* Scroll hint */}
-            <div style={{
-              position: 'absolute', bottom: 38, left: '50%',
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 9, color: '#243040', letterSpacing: '0.14em',
-              animation: ctaVisible ? 'scrollBounce 2.3s ease-in-out infinite' : 'none',
-              opacity: ctaVisible ? 1 : 0,
-              transition: 'opacity 0.6s 0.8s',
-            }}>
-              SCROLL ↓
+              <Button
+                variant="outline"
+                size="lg"
+                className="lp-cta-btn lp-mono h-12 px-10 text-xs tracking-widest text-zinc-300 border-zinc-700 bg-zinc-900/60 hover:bg-zinc-800 hover:text-zinc-100 hover:border-zinc-500 gap-6"
+                onClick={onEnter}
+              >
+                ENTER DASHBOARD
+                <span className="lp-arrow text-zinc-500">→</span>
+              </Button>
             </div>
-          </section>
+          </div>
 
-          {/* ── PROBLEM ──────────────────────────────────────────────── */}
-          <section
-            ref={setRef(0) as any}
-            style={{
-              maxWidth: 740, margin: '0 auto',
-              padding: '80px 24px 110px',
-              textAlign: 'center',
-              ...vis(0),
-            }}
-          >
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#22c55e', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 22, opacity: 0.65 }}>
-              // PROBLEM STATEMENT
-            </div>
-            <h2 style={{
-              fontSize: 'clamp(26px, 4.5vw, 44px)',
-              fontWeight: 700,
-              color: '#dde4ed',
-              lineHeight: 1.15,
-              marginBottom: 26,
-              fontFamily: 'DM Sans, sans-serif',
-            }}>
-              40% of crop yield lost to{' '}
-              <span style={{ color: '#ef4444', textShadow: '0 0 24px rgba(239,68,68,0.25)' }}>
-                invisible threats
-              </span>
-            </h2>
-            <p style={{ fontSize: 15, color: '#546070', lineHeight: 1.9 }}>
-              Drought, pest activity, and terrain erosion strike silently — undetected until the damage is done.
-              Traditional precision agriculture systems cost tens of thousands of dollars.
-              Most farmers are flying blind with no affordable alternative.
-            </p>
-          </section>
+        </section>
 
-          {/* ── HOW IT WORKS ─────────────────────────────────────────── */}
-          <section style={{ padding: '40px 24px 110px', maxWidth: 1080, margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 60 }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#22c55e', letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.65 }}>
-                // HOW IT WORKS
+        {/* ── PROBLEM ───────────────────────────────────────────────────── */}
+        <section
+          ref={setRef(0) as any}
+          style={{ maxWidth: 680, margin: '0 auto', padding: '80px 24px 110px', textAlign: 'center', ...vis(0) }}
+        >
+          <h2 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 700, color: '#f4f4f5', lineHeight: 1.18, marginBottom: 24 }}>
+            40% of crop yield lost to{' '}
+            <span style={{ color: '#a1a1aa' }}>invisible threats</span>
+          </h2>
+          <p style={{ fontSize: 15, color: '#52525b', lineHeight: 1.9 }}>
+            Drought, pest activity, and terrain erosion strike silently — undetected until the damage is done.
+            Traditional precision agriculture systems cost tens of thousands of dollars.
+            Most small farms are flying blind with no affordable alternative.
+          </p>
+        </section>
+
+        {/* ── HOW IT WORKS ──────────────────────────────────────────────── */}
+        <section style={{ padding: '0 24px 110px', maxWidth: 1060, margin: '0 auto' }}>
+          <h2 style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 600, color: '#a1a1aa', marginBottom: 32, textAlign: 'center' }}>
+            How it works
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(265px, 1fr))', gap: 16 }}>
+            {([
+              { n: '01', title: 'Sense',   glyph: '◈', i: 1, desc: '5 sensors scan soil moisture, barometric pressure, temperature, terrain tilt, and acceleration every 5 seconds. No gap in coverage, no blind spots.' },
+              { n: '02', title: 'Analyze', glyph: '⬡', i: 2, desc: 'Z-score anomaly detection, Pearson correlation matrices, and rule-based stress classification — patterns no single sensor could catch alone.' },
+              { n: '03', title: 'Act',     glyph: '▶', i: 3, desc: 'The AI sustainability advisor generates a ranked action plan with environmental impact, cost, and timeline for every intervention.' },
+            ] as const).map(card => (
+              <div key={card.n} ref={setRef(card.i) as any} style={vis(card.i, (card.i - 1) * 140)}>
+                <Card className="h-full">
+                  <CardHeader className="pb-2">
+                      <p className="text-2xl text-zinc-500">{card.glyph}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-base font-semibold text-zinc-200 mb-2">{card.title}</p>
+                    <p className="text-xs text-zinc-500 leading-relaxed">{card.desc}</p>
+                  </CardContent>
+                </Card>
               </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(265px, 1fr))', gap: 20 }}>
-              {([
-                {
-                  n: '01', title: 'Sense', glyph: '◈', color: '#22c55e', i: 1,
-                  desc: '5 sensors scan soil moisture, barometric pressure, temperature, terrain tilt, and acceleration every 5 seconds. No gap in coverage, no blind spots.',
-                },
-                {
-                  n: '02', title: 'Analyze', glyph: '⬡', color: '#3b82f6', i: 2,
-                  desc: 'Z-score anomaly detection, Pearson correlation matrices, and rule-based stress classification — patterns no single sensor could catch alone.',
-                },
-                {
-                  n: '03', title: 'Act', glyph: '▶', color: '#f59e0b', i: 3,
-                  desc: 'Real-time alerts tell you exactly what\'s wrong, where it is, and what to do — with trend forecasting up to 30 minutes ahead.',
-                },
-              ] as const).map(card => (
-                <div
-                  key={card.n}
-                  ref={setRef(card.i) as any}
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderTop: `2px solid ${card.color}`,
-                    borderRadius: 12,
-                    padding: '32px 28px',
-                    ...vis(card.i, (card.i - 1) * 150),
-                  }}
-                >
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: card.color, letterSpacing: '0.1em', marginBottom: 20, opacity: 0.6 }}>
-                    {card.n}
-                  </div>
-                  <div style={{ fontSize: 28, color: card.color, marginBottom: 14 }}>{card.glyph}</div>
-                  <div style={{ fontSize: 19, fontWeight: 700, color: '#dde4ed', marginBottom: 12 }}>{card.title}</div>
-                  <div style={{ fontSize: 13, color: '#546070', lineHeight: 1.8 }}>{card.desc}</div>
-                </div>
-              ))}
-            </div>
-          </section>
+            ))}
+          </div>
+        </section>
 
-          {/* ── LIVE STATS TEASER ────────────────────────────────────── */}
-          <section
-            ref={setRef(4) as any}
-            style={{ padding: '40px 24px 110px', maxWidth: 860, margin: '0 auto', ...vis(4) }}
-          >
-            <div style={{ textAlign: 'center', marginBottom: 44 }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#22c55e', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 10, opacity: 0.65 }}>
-                // LIVE PREVIEW
-              </div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#243040' }}>
-                simulated readings — connect hardware for real data
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-              {([
-                {
-                  label: 'TEMPERATURE',
-                  value: stats.temp.toFixed(1), unit: '°C',
-                  color: '#f97316',
-                  bar: Math.min(1, Math.max(0, (stats.temp - 15) / 25)),
-                },
-                {
-                  label: 'SOIL MOISTURE',
-                  value: String(stats.soil), unit: '%',
-                  color: soilColor,
-                  bar: stats.soil / 100,
-                },
-                {
-                  label: 'FIELD HEALTH',
-                  value: String(stats.health), unit: '',
-                  color: healthColor,
-                  bar: stats.health / 100,
-                },
-              ] as const).map(s => (
-                <div
-                  key={s.label}
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    padding: '22px 24px',
-                  }}
-                >
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: '0.12em', color: '#3d5166', marginBottom: 14 }}>
-                    {s.label}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 18 }}>
-                    <span style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 38, fontWeight: 700,
-                      color: s.color, lineHeight: 1,
-                      transition: 'color 0.4s',
-                    }}>
+        {/* ── LIVE STATS ────────────────────────────────────────────────── */}
+        <section
+          ref={setRef(4) as any}
+          style={{ padding: '0 24px 110px', maxWidth: 860, margin: '0 auto', ...vis(4) }}
+        >
+          <h2 style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 600, color: '#a1a1aa', marginBottom: 32, textAlign: 'center' }}>
+            Live field data
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+            {([
+              { label: 'TEMPERATURE',   value: stats.temp.toFixed(1), unit: '°C', bar: Math.min(1, Math.max(0, (stats.temp - 15) / 25)) },
+              { label: 'SOIL MOISTURE', value: String(stats.soil),    unit: '%',  bar: stats.soil / 100 },
+              { label: 'FIELD HEALTH',  value: String(stats.health),  unit: '',   bar: stats.health / 100 },
+            ] as const).map(s => (
+              <Card key={s.label}>
+                <CardContent className="pt-5">
+                  <p className="lp-mono text-[9px] tracking-widest text-zinc-600 mb-3">{s.label}</p>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 16 }}>
+                    <span className="lp-mono" style={{ fontSize: 36, fontWeight: 700, color: '#a1a1aa', lineHeight: 1, transition: 'color 0.4s' }}>
                       {s.value}
                     </span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, color: '#3d5166' }}>
-                      {s.unit}
-                    </span>
+                    <span className="lp-mono" style={{ fontSize: 13, color: '#3f3f46' }}>{s.unit}</span>
                   </div>
-                  <div style={{ height: 2, background: 'var(--border)', borderRadius: 1, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: 1,
-                      background: s.color,
-                      width: `${s.bar * 100}%`,
-                      transition: 'width 1.3s ease-out, background 0.5s',
-                    }} />
+                  <div style={{ height: 1, background: '#27272a', borderRadius: 1, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: '#52525b', width: `${s.bar * 100}%`, borderRadius: 1, transition: 'width 1.3s ease-out' }} />
                   </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
 
-          {/* ── TECH STACK ───────────────────────────────────────────── */}
-          <section
-            ref={setRef(5) as any}
-            style={{
-              padding: '48px 24px',
-              borderTop: '1px solid rgba(42,52,65,0.5)',
-              textAlign: 'center',
-              ...vis(5),
-            }}
-          >
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: '#1e2d3a', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 20 }}>
-              hardware + software
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 700, margin: '0 auto' }}>
-              {['ESP32', 'BMP280', 'MPU6050', 'FSR402', 'React 18', 'TypeScript', 'WebSocket', 'Vite', 'Express', 'ngrok', 'Tailwind CSS'].map(tag => (
-                <span
-                  key={tag}
-                  className="tech-badge"
-                  style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 11,
-                    padding: '5px 12px',
-                    border: '1px solid #1c2a38',
-                    borderRadius: 4,
-                    color: '#263545',
-                    cursor: 'default',
-                  }}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </section>
+        {/* ── TECH STACK ────────────────────────────────────────────────── */}
+        <section
+          ref={setRef(5) as any}
+          style={{ padding: '48px 24px', textAlign: 'center', ...vis(5) }}
+        >
+          <Separator className="mb-10 max-w-3xl mx-auto" />
+          <h2 style={{ fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 600, color: '#a1a1aa', marginBottom: 24, textAlign: 'center' }}>
+            Built with
+          </h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 700, margin: '0 auto' }}>
+            {['ESP32', 'BMP280', 'MPU6050', 'FSR402', 'React 18', 'TypeScript', 'WebSocket', 'Vite', 'Express', 'ngrok', 'Tailwind CSS'].map(tag => (
+              <Badge key={tag} variant="outline" className="lp-mono text-[10px] tracking-wider text-zinc-600 border-zinc-800 hover:border-zinc-700 hover:text-zinc-400 cursor-default">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        </section>
 
-          {/* ── FOOTER ───────────────────────────────────────────────── */}
-          <footer style={{
-            padding: '28px 24px',
-            borderTop: '1px solid rgba(42,52,65,0.35)',
-            textAlign: 'center',
-          }}>
-            <div style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 10,
-              color: '#19252f',
-              letterSpacing: '0.13em',
-            }}>
-              DIVERGENT TEAMS HACKATHON 2026 — SUSTAINABILITY TRACK
-            </div>
-          </footer>
+        {/* ── FOOTER ────────────────────────────────────────────────────── */}
+        <footer style={{ padding: '28px 24px', textAlign: 'center' }}>
+          <Separator className="max-w-3xl mx-auto" />
+        </footer>
 
-        </div>
       </div>
     </>
   );
