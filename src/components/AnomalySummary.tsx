@@ -1,55 +1,60 @@
 import React from 'react';
 import type { ChannelName, ChannelState } from '../types';
 import { CHANNELS } from '../types';
-import { CHANNEL_LABELS as CH_LABELS } from '../config';
+import { CHANNEL_LABELS } from '../config';
 import { anomalyRate } from '../engine/anomaly';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { cn } from '../lib/utils';
 
 interface Props {
   channelStates: Record<ChannelName, ChannelState>;
 }
 
-export const AnomalySummary: React.FC<Props> = ({ channelStates }) => {
-  return (
-    <div className="card">
-      <div className="section-title">Anomaly Detection</div>
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Channel</th>
-            <th>Z-Score</th>
-            <th>Status</th>
-            <th>Total</th>
-            <th>Rate/min</th>
-          </tr>
-        </thead>
-        <tbody>
+export const AnomalySummary: React.FC<Props> = ({ channelStates }) => (
+  <Card>
+    <CardHeader className="pb-3 pt-4 px-4">
+      <CardTitle className="text-sm">Anomaly Detection</CardTitle>
+    </CardHeader>
+    <CardContent className="px-4 pb-4 pt-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Channel</TableHead>
+            <TableHead className="text-right">Z-Score</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Total</TableHead>
+            <TableHead className="text-right">Rate/min</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {CHANNELS.map(ch => {
-            const s = channelStates[ch];
+            const s    = channelStates[ch];
             const rate = anomalyRate(s);
-            const isAnom = s.isAnomalous;
             return (
-              <tr key={ch}>
-                <td style={{ color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
-                  {CH_LABELS[ch]}
-                </td>
-                <td style={{ color: Math.abs(s.zScore) > 2 ? '#ef4444' : 'var(--text-muted)' }}>
+              <TableRow key={ch}>
+                <TableCell className="font-sans text-xs font-medium text-foreground">
+                  {CHANNEL_LABELS[ch]}
+                </TableCell>
+                <TableCell className={cn('text-right', Math.abs(s.zScore) > 2 ? 'text-red-400' : 'text-muted-foreground')}>
                   {s.zScore.toFixed(2)}
-                </td>
-                <td>
-                  {isAnom
-                    ? <span className="badge badge-critical">Anomalous</span>
-                    : <span className="badge badge-ok">Normal</span>
+                </TableCell>
+                <TableCell>
+                  {s.isAnomalous
+                    ? <Badge variant="destructive" className="text-[10px]">Anomalous</Badge>
+                    : <Badge variant="success"     className="text-[10px]">Normal</Badge>
                   }
-                </td>
-                <td>{s.anomalyCount}</td>
-                <td style={{ color: rate > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
+                </TableCell>
+                <TableCell className="text-right text-muted-foreground">{s.anomalyCount}</TableCell>
+                <TableCell className={cn('text-right', rate > 0 ? 'text-amber-400' : 'text-muted-foreground')}>
                   {rate.toFixed(1)}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+        </TableBody>
+      </Table>
+    </CardContent>
+  </Card>
+);

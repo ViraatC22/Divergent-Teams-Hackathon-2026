@@ -1,8 +1,11 @@
 import React, { memo } from 'react';
 import type { ChannelName, ChannelState } from '../types';
-import { CHANNEL_LABELS, CHANNEL_UNITS, CHANNEL_ICONS } from '../config';
+import { CHANNEL_LABELS, CHANNEL_UNITS } from '../config';
 import { isDotVisible, anomalyRate } from '../engine/anomaly';
 import { Sparkline } from './Sparkline';
+import { Card, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/utils';
 
 interface Props {
   channel: ChannelName;
@@ -12,101 +15,92 @@ interface Props {
 }
 
 const CHANNEL_COLORS: Record<ChannelName, string> = {
-  distance: '#3b82f6',
-  temperature: '#f97316',
-  pressure: '#a78bfa',
-  soilPercent: '#22c55e',
+  altitude:     '#3b82f6',
+  temperature:  '#f97316',
+  pressure:     '#8b5cf6',
+  soilPercent:  '#10b981',
   vibrationRMS: '#f59e0b',
 };
 
 export const SensorCard: React.FC<Props> = memo(({ channel, state, currentValue, pressureDelta }) => {
-  const color = CHANNEL_COLORS[channel];
-  const label = CHANNEL_LABELS[channel];
-  const unit = CHANNEL_UNITS[channel];
-  const icon = CHANNEL_ICONS[channel];
-  const showDot = isDotVisible(state);
-  const rate = anomalyRate(state);
+  const color     = CHANNEL_COLORS[channel];
+  const label     = CHANNEL_LABELS[channel];
+  const unit      = CHANNEL_UNITS[channel];
+  const showDot   = isDotVisible(state);
+  const rate      = anomalyRate(state);
+  const isAnomalous = showDot;
 
   const displayValue = currentValue !== null && currentValue !== undefined
-    ? channel === 'soilPercent'
-      ? currentValue.toFixed(0)
-      : channel === 'pressure'
-        ? currentValue.toFixed(1)
-        : currentValue.toFixed(channel === 'vibrationRMS' ? 2 : 1)
+    ? channel === 'soilPercent'  ? currentValue.toFixed(0)
+    : channel === 'pressure'     ? currentValue.toFixed(1)
+    : channel === 'vibrationRMS' ? currentValue.toFixed(2)
+    : currentValue.toFixed(1)
     : '—';
 
-  const sparkBand = channel === 'temperature'
-    ? { min: 15, max: 30, color: 'rgba(34,197,94,0.12)' }
-    : undefined;
-
   return (
-    <div className="card" style={{ position: 'relative', overflow: 'hidden' }}>
-      {/* Anomaly dot */}
-      {showDot && (
-        <span
-          className="anomaly-dot"
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: '#ef4444',
-            display: 'block',
-          }}
-        />
-      )}
+    <Card>
+      <CardContent className="p-4">
+        {/* Header */}
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {label}
+          </span>
+          {isAnomalous && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              anomaly
+            </Badge>
+          )}
+        </div>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontSize: 16 }}>{icon}</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {label}
-        </span>
-      </div>
+        {/* Primary value */}
+        <div className="mb-1 flex items-baseline gap-1.5">
+          <span
+            className="font-mono text-2xl font-bold leading-none"
+            style={{ color: currentValue !== null ? color : undefined }}
+          >
+            {displayValue}
+          </span>
+          <span className="text-xs text-muted-foreground">{unit}</span>
+        </div>
 
-      {/* Value */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
-        <span className="font-mono" style={{ fontSize: 28, fontWeight: 700, color, lineHeight: 1 }}>
-          {displayValue}
-        </span>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{unit}</span>
-      </div>
-
-      {/* Extra info */}
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', marginBottom: 10, minHeight: 16 }}>
-        {channel === 'pressure' && pressureDelta !== null && pressureDelta !== undefined
-          ? <span style={{ color: pressureDelta >= 0 ? '#22c55e' : '#ef4444' }}>
+        {/* Sub-info */}
+        <div className="mb-3 min-h-[16px] text-xs text-muted-foreground font-mono">
+          {channel === 'pressure' && pressureDelta !== null && pressureDelta !== undefined && (
+            <span className={pressureDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}>
               {pressureDelta >= 0 ? '+' : ''}{pressureDelta.toFixed(2)} hPa/min
             </span>
-          : channel === 'pressure'
-            ? '—'
-            : null
-        }
-        {channel === 'soilPercent' && currentValue !== null
-          ? <span>{currentValue.toFixed(0)}% saturation</span>
-          : null
-        }
-      </div>
+          )}
+          {channel === 'soilPercent' && currentValue !== null && (() => {
+            const pct = currentValue as number;
+            const barColor = pct < 15 ? '#ef4444' : pct < 25 ? '#f59e0b' : '#10b981';
+            return (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex-1 h-1 rounded bg-border overflow-hidden">
+                  <div style={{ width: `${Math.min(pct, 100)}%`, background: barColor, height: '100%', transition: 'width 0.4s' }} />
+                </div>
+              </div>
+            );
+          })()}
+        </div>
 
-      {/* Sparkline */}
-      <Sparkline
-        data={state.buffer}
-        color={color}
-        width={180}
-        height={48}
-        showBand={sparkBand}
-      />
+        {/* Sparkline */}
+        <Sparkline data={state.buffer} color={color} height={40} />
 
-      {/* Anomaly rate */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-        <span>z = <span className="font-mono" style={{ color: Math.abs(state.zScore) > 2 ? '#ef4444' : 'var(--text-muted)' }}>
-          {state.zScore.toFixed(2)}
-        </span></span>
-        <span className="font-mono">{rate.toFixed(1)}/min</span>
-      </div>
-    </div>
+        {/* Footer */}
+        <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+          <span>
+            z = <span className={cn(Math.abs(state.zScore) > 2 ? 'text-red-400' : 'text-muted-foreground')}>
+              {state.zScore.toFixed(2)}
+            </span>
+          </span>
+          {rate > 0 ? (
+            <span className="text-amber-400">{rate}/min</span>
+          ) : (
+            <span>nominal</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 });
 

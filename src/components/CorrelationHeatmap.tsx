@@ -2,17 +2,15 @@ import React, { useRef, useEffect } from 'react';
 import { CHANNELS } from '../types';
 import { CHANNEL_LABELS } from '../config';
 import { correlationColor } from '../engine/correlation';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
-interface Props {
-  matrix: number[][];
-  insights: string[];
-}
+interface Props { matrix: number[][]; insights: string[]; }
 
 export const CorrelationHeatmap: React.FC<Props> = ({ matrix, insights }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const n = CHANNELS.length;
-  const cellSize = 52;
-  const labelW = 80;
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const n          = CHANNELS.length;
+  const cellSize   = 50;
+  const labelW     = 76;
   const canvasSize = n * cellSize + labelW;
 
   useEffect(() => {
@@ -22,97 +20,80 @@ export const CorrelationHeatmap: React.FC<Props> = ({ matrix, insights }) => {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvasSize * dpr;
+    canvas.width  = canvasSize * dpr;
     canvas.height = canvasSize * dpr;
-    canvas.style.width = `${canvasSize}px`;
+    canvas.style.width  = `${canvasSize}px`;
     canvas.style.height = `${canvasSize}px`;
     ctx.scale(dpr, dpr);
-
     ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-    // Draw cells
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         const r = matrix[i]?.[j] ?? 0;
         const x = labelW + j * cellSize;
         const y = labelW + i * cellSize;
-
         ctx.fillStyle = correlationColor(r);
         ctx.fillRect(x, y, cellSize - 1, cellSize - 1);
-
-        // Value text
-        ctx.fillStyle = Math.abs(r) > 0.5 ? '#0f1419' : '#e2e8f0';
-        ctx.font = `bold 11px JetBrains Mono, monospace`;
+        ctx.fillStyle = Math.abs(r) > 0.6 ? '#e4e4e7' : '#52525b';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(r.toFixed(2), x + cellSize / 2, y + cellSize / 2);
       }
     }
 
-    // Column labels (top)
-    ctx.fillStyle = '#64748b';
-    ctx.font = `11px DM Sans, sans-serif`;
+    ctx.fillStyle = '#52525b';
+    ctx.font = '11px "DM Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (let j = 0; j < n; j++) {
-      const x = labelW + j * cellSize + cellSize / 2;
-      const label = CHANNEL_LABELS[CHANNELS[j]];
-      ctx.save();
-      ctx.translate(x, labelW / 2);
-      ctx.fillText(label.slice(0, 8), 0, 0);
-      ctx.restore();
+      ctx.fillText(CHANNEL_LABELS[CHANNELS[j]].slice(0, 7), labelW + j * cellSize + cellSize / 2, labelW / 2);
     }
-
-    // Row labels (left)
     ctx.textAlign = 'right';
     for (let i = 0; i < n; i++) {
-      const y = labelW + i * cellSize + cellSize / 2;
-      const label = CHANNEL_LABELS[CHANNELS[i]];
-      ctx.fillText(label.slice(0, 10), labelW - 6, y);
+      ctx.fillText(CHANNEL_LABELS[CHANNELS[i]].slice(0, 9), labelW - 5, labelW + i * cellSize + cellSize / 2);
     }
   }, [matrix, canvasSize, n]);
 
   return (
-    <div className="card">
-      <div className="section-title">Correlation Heatmap <span style={{ fontSize: 10, fontWeight: 400 }}>(updates every 30s)</span></div>
+    <Card>
+      <CardHeader className="pb-3 pt-4 px-4">
+        <CardTitle className="text-sm">
+          Correlation Heatmap
+          <span className="ml-2 text-xs font-normal text-muted-foreground">updates every 30s</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0">
+        <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="h-2 w-10 rounded-sm" style={{ background: 'linear-gradient(to right, rgb(100,100,255), rgb(255,255,255), rgb(255,100,100))' }} />
+          <span>−1 → 0 → +1</span>
+        </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 11, color: 'var(--text-muted)' }}>
-        <div style={{ width: 40, height: 8, background: 'linear-gradient(to right, rgb(0,0,255), rgb(255,255,255), rgb(255,0,0))', borderRadius: 2 }} />
-        <span>-1 → 0 → +1</span>
-      </div>
+        {matrix.length === 0 ? (
+          <p className="py-4 text-xs text-muted-foreground italic">Collecting data…</p>
+        ) : (
+          <canvas ref={canvasRef} className="block mb-4" />
+        )}
 
-      <canvas ref={canvasRef} style={{ display: 'block', marginBottom: 16 }} />
-
-      {/* Insights */}
-      {insights.length > 0 && (
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-            Insights (|r| &gt; 0.7)
+        {insights.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Insights (|r| &gt; 0.7)
+            </p>
+            {insights.map((ins, i) => (
+              <div key={i} className="rounded border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+                <span className="mr-1.5 text-emerald-400">›</span>{ins}
+              </div>
+            ))}
           </div>
-          {insights.map((ins, i) => (
-            <div key={i} style={{
-              fontSize: 12,
-              padding: '6px 10px',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              marginBottom: 4,
-              color: '#94a3b8',
-              lineHeight: 1.4,
-            }}>
-              <span style={{ color: '#22c55e', marginRight: 6 }}>▸</span>
-              {ins}
-            </div>
-          ))}
-        </div>
-      )}
+        )}
 
-      {insights.length === 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          No strong correlations detected yet (need more data or |r| &gt; 0.7)
-        </div>
-      )}
-    </div>
+        {insights.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">
+            No strong correlations yet (|r| &gt; 0.7 threshold)
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 };

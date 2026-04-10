@@ -1,74 +1,77 @@
 import React from 'react';
+import { AlertTriangle, AlertCircle } from 'lucide-react';
 import type { AlertEntry } from '../types';
 import { formatTimestamp, formatTimeAgo } from '../utils/formatters';
 import { CLASSIFICATION_COLORS } from '../config';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/utils';
 
-interface Props {
-  alerts: AlertEntry[];
-}
+interface Props { alerts: AlertEntry[]; }
 
-export const AlertFeed: React.FC<Props> = ({ alerts }) => {
-  return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <div className="section-title">Alert Feed</div>
-
-      {alerts.length === 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0', fontStyle: 'italic' }}>
+export const AlertFeed: React.FC<Props> = ({ alerts }) => (
+  <Card>
+    <CardHeader className="pb-3 pt-4 px-4">
+      <CardTitle className="text-sm">Alert Feed</CardTitle>
+    </CardHeader>
+    <CardContent className="px-4 pb-4 pt-0">
+      {alerts.length === 0 ? (
+        <p className="py-6 text-center text-xs text-muted-foreground italic">
           No alerts — system nominal
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-96 overflow-y-auto pr-1">
+          {alerts.map(alert => {
+            const isCritical  = alert.severity === 'critical';
+            const persistSecs = Math.floor((Date.now() - alert.persistingSince) / 1000);
+
+            return (
+              <div
+                key={alert.id}
+                className={cn(
+                  'rounded-md border p-3',
+                  isCritical
+                    ? 'border-red-500/30 bg-red-500/5'
+                    : 'border-amber-500/30 bg-amber-500/5',
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  {isCritical
+                    ? <AlertCircle size={14} className="mt-0.5 shrink-0 text-red-400" />
+                    : <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <Badge variant={isCritical ? 'destructive' : 'warning'} className="text-[10px]">
+                        {alert.severity}
+                      </Badge>
+                      <span className="text-xs font-semibold" style={{ color: CLASSIFICATION_COLORS[alert.label] }}>
+                        {alert.label}
+                      </span>
+                      <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                        {formatTimestamp(alert.timestamp)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-1">
+                      {alert.recommendation}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground">
+                        {alert.triggers.join(' · ')}
+                      </span>
+                      {persistSecs > 30 && (
+                        <span className={cn('font-mono text-[10px]', isCritical ? 'text-red-400' : 'text-amber-400')}>
+                          {persistSecs}s
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
-        {alerts.map(alert => {
-          const isCritical = alert.severity === 'critical';
-          const persisting = Date.now() - alert.persistingSince > 1000;
-          const persistSecs = Math.floor((Date.now() - alert.persistingSince) / 1000);
-
-          return (
-            <div
-              key={alert.id}
-              className={isCritical ? 'critical-alert' : ''}
-              style={{
-                background: 'var(--bg-elevated)',
-                border: `1px solid ${isCritical ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.3)'}`,
-                borderRadius: 6,
-                padding: '10px 14px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                <span className={`badge ${isCritical ? 'badge-critical' : 'badge-warning'}`}>
-                  {alert.severity}
-                </span>
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: CLASSIFICATION_COLORS[alert.label],
-                }}>
-                  {alert.label}
-                </span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {formatTimestamp(alert.timestamp)}
-                </span>
-              </div>
-
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>
-                {alert.recommendation}
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  Triggers: {alert.triggers.join(' · ')}
-                </span>
-                {persisting && persistSecs > 30 && (
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: isCritical ? '#ef4444' : '#f59e0b', fontFamily: 'JetBrains Mono, monospace' }}>
-                    persisting {persistSecs}s
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+    </CardContent>
+  </Card>
+);

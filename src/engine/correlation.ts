@@ -55,18 +55,22 @@ export function generateInsights(matrix: number[][]): string[] {
   return insights;
 }
 
-/** Map r ∈ [-1, 1] to an RGB color: blue(-1) → white(0) → red(+1) */
+/** Map r ∈ [-1, 1] to a muted dark-theme color: blue tint(-1) → neutral(0) → amber tint(+1) */
 export function correlationColor(r: number): string {
-  const t = (r + 1) / 2; // 0..1
-  if (t < 0.5) {
-    // blue to white
-    const f = t / 0.5;
-    const c = Math.round(255 * f);
-    return `rgb(${c},${c},255)`;
+  const base = 19; // neutral dark cell (~#131313)
+  if (r < 0) {
+    // neutral → blue tint
+    const intensity = Math.abs(r);
+    const rCh = Math.round(base + (30  - base) * intensity);
+    const gCh = Math.round(base + (40  - base) * intensity);
+    const bCh = Math.round(base + (110 - base) * intensity);
+    return `rgb(${rCh},${gCh},${bCh})`;
   } else {
-    // white to red
-    const f = (t - 0.5) / 0.5;
-    const g = Math.round(255 * (1 - f));
-    return `rgb(255,${g},${g})`;
+    // neutral → amber tint
+    const intensity = r;
+    const rCh = Math.round(base + (110 - base) * intensity);
+    const gCh = Math.round(base + (70  - base) * intensity);
+    const bCh = Math.round(base + (20  - base) * intensity);
+    return `rgb(${rCh},${gCh},${bCh})`;
   }
 }

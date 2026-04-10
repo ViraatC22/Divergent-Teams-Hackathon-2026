@@ -8,7 +8,9 @@ interface Props {
   counts: Record<ClassificationLabel, number>;
 }
 
-const SIZE = 120;
+const SIZE   = 100;
+const RADIUS = 42;
+const INNER  = 28;
 
 export const DonutChart: React.FC<Props> = ({ counts }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,62 +23,75 @@ export const DonutChart: React.FC<Props> = ({ counts }) => {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = SIZE * dpr;
+    canvas.width  = SIZE * dpr;
     canvas.height = SIZE * dpr;
-    canvas.style.width = `${SIZE}px`;
+    canvas.style.width  = `${SIZE}px`;
     canvas.style.height = `${SIZE}px`;
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, SIZE, SIZE);
 
+    const cx = SIZE / 2;
+    const cy = SIZE / 2;
+
     if (total === 0) {
+      // Empty ring
       ctx.beginPath();
-      ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 8, 0, Math.PI * 2);
-      ctx.strokeStyle = '#2a3441';
-      ctx.lineWidth = 16;
+      ctx.arc(cx, cy, RADIUS, 0, Math.PI * 2);
+      ctx.strokeStyle = '#27272a';
+      ctx.lineWidth = RADIUS - INNER;
       ctx.stroke();
       return;
     }
 
+    // Draw arc segments
     let startAngle = -Math.PI / 2;
     for (const label of ORDER) {
       const count = counts[label];
       if (count === 0) continue;
       const slice = (count / total) * Math.PI * 2;
+      const endAngle = startAngle + slice;
+
       ctx.beginPath();
-      ctx.moveTo(SIZE / 2, SIZE / 2);
-      ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 8, startAngle, startAngle + slice);
+      ctx.arc(cx, cy, RADIUS, startAngle, endAngle);
+      ctx.arc(cx, cy, INNER, endAngle, startAngle, true);
       ctx.closePath();
-      ctx.fillStyle = CLASSIFICATION_COLORS[label];
+      ctx.fillStyle = CLASSIFICATION_COLORS[label] + 'cc'; // 80% opacity — softer
       ctx.fill();
-      startAngle += slice;
+
+      // Thin gap between segments
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(endAngle) * INNER, cy + Math.sin(endAngle) * INNER);
+      ctx.lineTo(cx + Math.cos(endAngle) * RADIUS, cy + Math.sin(endAngle) * RADIUS);
+      ctx.strokeStyle = '#131316';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      startAngle = endAngle;
     }
 
-    // Donut hole
-    ctx.beginPath();
-    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 28, 0, Math.PI * 2);
-    ctx.fillStyle = 'var(--bg-card)';
-    ctx.fill();
-
-    // Center text
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = 'bold 14px JetBrains Mono, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${total}`, SIZE / 2, SIZE / 2);
+    // Center total
+    ctx.fillStyle     = '#a1a1aa';
+    ctx.font          = 'bold 13px JetBrains Mono, monospace';
+    ctx.textAlign     = 'center';
+    ctx.textBaseline  = 'middle';
+    ctx.fillText(`${total}`, cx, cy);
   }, [counts, total]);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-      <canvas ref={canvasRef} style={{ display: 'block', flexShrink: 0 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="flex items-center gap-5 flex-wrap">
+      <canvas ref={canvasRef} className="block shrink-0" />
+      <div className="flex flex-col gap-2">
         {ORDER.map(label => {
           const count = counts[label];
-          const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
+          const pct   = total > 0 ? ((count / total) * 100).toFixed(1) : '0.0';
           return (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: CLASSIFICATION_COLORS[label], display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', minWidth: 100 }}>{label}</span>
-              <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-primary)' }}>{pct}%</span>
+            <div key={label} className="flex items-center gap-2">
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: CLASSIFICATION_COLORS[label] }}
+              />
+              <span className="text-xs text-muted-foreground w-[110px]">{label}</span>
+              <span className="font-mono text-xs text-foreground">{pct}%</span>
             </div>
           );
         })}

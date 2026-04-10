@@ -277,99 +277,106 @@ export default function App() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', fontFamily: 'DM Sans, sans-serif' }}>
-      <StatusBar
-        connectionStatus={connStatus}
-        wsUrl={wsUrl}
-        onWsUrlChange={setWsUrl}
-        onConnect={() => connectWS(wsUrl)}
-        simulationMode={simulationMode}
-        onToggleSimulation={toggleSimulation}
-        lastPacketTime={snapshot.lastPacketTime}
-        isStale={snapshot.isStale}
-        healthScore={snapshot.healthScore}
-        classification={snapshot.classification}
-      />
-
-      <main style={{ padding: '20px', maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-        {/* ── AI Crop Advisor ── */}
-        <AIAdvisor
-          lastPacket={snapshot.lastPacket}
-          classification={snapshot.classification}
+    <div className="flex h-screen overflow-hidden bg-background">
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <StatusBar
+          connectionStatus={connStatus}
+          wsUrl={wsUrl}
+          onWsUrlChange={setWsUrl}
+          onConnect={() => connectWS(wsUrl)}
+          simulationMode={simulationMode}
+          onToggleSimulation={toggleSimulation}
+          lastPacketTime={snapshot.lastPacketTime}
+          isStale={snapshot.isStale}
           healthScore={snapshot.healthScore}
-          channelStates={snapshot.channelStates}
-          correlationInsights={periodic.correlationInsights}
+          classification={snapshot.classification}
         />
 
-        {/* ── Section 1: Sensor Cards ── */}
-        <div>
-          <div className="section-title">Live Sensor Data</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            {CHANNELS.map(ch => (
-              <SensorCard
-                key={ch}
-                channel={ch}
-                state={snapshot.channelStates[ch]}
-                currentValue={snapshot.lastPacket ? snapshot.lastPacket[ch] as number : null}
-                pressureDelta={ch === 'pressure' ? pressureDelta : undefined}
+        <main className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+
+          {/* ── AI Crop Advisor ── */}
+          <AIAdvisor
+            lastPacket={snapshot.lastPacket}
+            classification={snapshot.classification}
+            healthScore={snapshot.healthScore}
+            channelStates={snapshot.channelStates}
+            correlationInsights={periodic.correlationInsights}
+          />
+
+          {/* ── Live Sensor Data ── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Live Sensor Data</p>
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              {CHANNELS.map(ch => (
+                <SensorCard
+                  key={ch}
+                  channel={ch}
+                  state={snapshot.channelStates[ch]}
+                  currentValue={snapshot.lastPacket ? snapshot.lastPacket[ch] as number : null}
+                  pressureDelta={ch === 'pressure' ? pressureDelta : undefined}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ── AI Analysis Engine ── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">AI Analysis Engine</p>
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+              <AnomalySummary channelStates={snapshot.channelStates} />
+              <CorrelationHeatmap matrix={periodic.correlationMatrix} insights={periodic.correlationInsights} />
+            </div>
+          </div>
+
+          {/* ── Classification Log ── */}
+          <ClassificationLog log={snapshot.classificationLog} />
+
+          {/* ── Trend Forecasting ── */}
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Trend Forecasting
+              <span className="ml-2 normal-case font-normal tracking-normal">
+                (updates every 10s — dashed = projected, shaded = ±1 SE)
+              </span>
+            </p>
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+              <TrendForecast
+                forecast={periodic.temperatureForecast}
+                label="Temperature"
+                color="#f97316"
+                unit="°C"
               />
-            ))}
+              <TrendForecast
+                forecast={periodic.soilForecast}
+                label="Soil Moisture"
+                color="#22c55e"
+                unit="%"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* ── Section 2: AI Analysis ── */}
-        <div>
-          <div className="section-title">AI Analysis Engine</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
-            <AnomalySummary channelStates={snapshot.channelStates} />
-            <CorrelationHeatmap matrix={periodic.correlationMatrix} insights={periodic.correlationInsights} />
-          </div>
-        </div>
+          {/* ── Historical Charts ── */}
+          <HistoricalChart
+            packets={snapshot.allPackets}
+            classificationHistory={classHistoryRef.current}
+          />
 
-        {/* ── Classification Log ── */}
-        <ClassificationLog log={snapshot.classificationLog} />
+          {/* ── Alert Feed ── */}
+          <AlertFeed alerts={snapshot.alerts} />
 
-        {/* ── Trend Forecasting ── */}
-        <div>
-          <div className="section-title">Trend Forecasting <span style={{ fontSize: 10, fontWeight: 400 }}>(updates every 10s — dashed = projected, shaded = ±1 SE)</span></div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
-            <TrendForecast
-              forecast={periodic.temperatureForecast}
-              label="Temperature"
-              color="#f97316"
-              unit="°C"
-            />
-            <TrendForecast
-              forecast={periodic.soilForecast}
-              label="Soil Moisture"
-              color="#22c55e"
-              unit="%"
-            />
-          </div>
-        </div>
+          {/* ── Session Summary ── */}
+          <SessionSummary
+            sessionStart={sessionStart.current}
+            totalPackets={snapshot.totalPackets}
+            channelStates={snapshot.channelStates}
+            sessionClassificationCounts={snapshot.sessionClassificationCounts}
+            classificationLog={snapshot.classificationLog}
+            allPackets={snapshot.allPackets}
+            correlationInsights={periodic.correlationInsights}
+          />
 
-        {/* ── Historical Charts ── */}
-        <HistoricalChart
-          packets={snapshot.allPackets}
-          classificationHistory={classHistoryRef.current}
-        />
-
-        {/* ── Alert Feed ── */}
-        <AlertFeed alerts={snapshot.alerts} />
-
-        {/* ── Session Summary ── */}
-        <SessionSummary
-          sessionStart={sessionStart.current}
-          totalPackets={snapshot.totalPackets}
-          channelStates={snapshot.channelStates}
-          sessionClassificationCounts={snapshot.sessionClassificationCounts}
-          classificationLog={snapshot.classificationLog}
-          allPackets={snapshot.allPackets}
-          correlationInsights={periodic.correlationInsights}
-        />
-
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

@@ -19,10 +19,10 @@ export function exportJSON(packets: SensorPacket[], classifications: Classificat
 }
 
 export function exportCSV(packets: SensorPacket[]) {
-  const headers = ['timestamp', 'distance', 'temperature', 'pressure', 'soilRaw', 'soilPercent', 'tiltX', 'tiltY', 'vibrationRMS'];
+  const headers = ['timestamp', 'altitude', 'temperature', 'pressure', 'soilRaw', 'soilPercent', 'tiltX', 'tiltY', 'vibrationRMS'];
   const rows = packets.map(p => [
     formatTimestamp(p.timestamp),
-    p.distance,
+    p.altitude,
     p.temperature,
     p.pressure,
     p.soilRaw,

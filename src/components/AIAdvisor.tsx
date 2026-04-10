@@ -1,7 +1,12 @@
 import React, { useState, useCallback } from 'react';
+import { Leaf, Search, Eye, EyeOff, X, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { SensorPacket, ClassificationResult, ChannelState, ChannelName } from '../types';
 import { CHANNELS } from '../types';
 import { CHANNEL_LABELS } from '../config';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { cn } from '../lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,10 +28,10 @@ interface Props {
 
 // ─── Provider metadata ────────────────────────────────────────────────────────
 
-const PROVIDERS: { id: Provider; label: string; model: string; color: string }[] = [
-  { id: 'anthropic', label: 'Claude',  model: 'claude-haiku-4-5',    color: '#d97706' },
-  { id: 'openai',    label: 'GPT-4o',  model: 'gpt-4o-mini',         color: '#10b981' },
-  { id: 'gemini',    label: 'Gemini',  model: 'gemini-1.5-flash',    color: '#6366f1' },
+const PROVIDERS: { id: Provider; label: string; model: string }[] = [
+  { id: 'anthropic', label: 'Claude',  model: 'claude-haiku-4-5'  },
+  { id: 'openai',    label: 'GPT-4o',  model: 'gpt-4o-mini'       },
+  { id: 'gemini',    label: 'Gemini',  model: 'gemini-1.5-flash'  },
 ];
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
@@ -86,7 +91,6 @@ async function callAI(provider: Provider, model: string, apiKey: string, prompt:
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
           'content-type': 'application/json',
-          // Required to allow direct browser calls to the Anthropic API
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
@@ -158,16 +162,16 @@ export const AIAdvisor: React.FC<Props> = ({
   channelStates,
   correlationInsights,
 }) => {
-  const [expanded, setExpanded]     = useState(true);
-  const [provider, setProvider]     = useState<Provider>('anthropic');
-  const [apiKey, setApiKey]         = useState('');
-  const [showKey, setShowKey]       = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [result, setResult]         = useState<AnalysisResult | null>(null);
-  const [error, setError]           = useState<string | null>(null);
+  const [expanded, setExpanded]   = useState(true);
+  const [provider, setProvider]   = useState<Provider>('anthropic');
+  const [apiKey, setApiKey]       = useState('');
+  const [showKey, setShowKey]     = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [result, setResult]       = useState<AnalysisResult | null>(null);
+  const [error, setError]         = useState<string | null>(null);
 
   const providerMeta = PROVIDERS.find(p => p.id === provider)!;
-  const canAnalyze = !!lastPacket && apiKey.trim().length > 0 && !loading;
+  const canAnalyze   = !!lastPacket && apiKey.trim().length > 0 && !loading;
 
   const handleAnalyze = useCallback(async () => {
     if (!lastPacket || !apiKey.trim()) return;
@@ -176,7 +180,7 @@ export const AIAdvisor: React.FC<Props> = ({
     setResult(null);
     try {
       const prompt = buildPrompt(lastPacket, classification, healthScore, channelStates, correlationInsights);
-      const text = await callAI(provider, providerMeta.model, apiKey.trim(), prompt);
+      const text   = await callAI(provider, providerMeta.model, apiKey.trim(), prompt);
       setResult({ text, provider, timestamp: Date.now() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error — check your API key and try again.');
@@ -185,246 +189,174 @@ export const AIAdvisor: React.FC<Props> = ({
     }
   }, [lastPacket, apiKey, provider, providerMeta, classification, healthScore, channelStates, correlationInsights]);
 
-  // Format the analysis timestamp
-  const resultAge = result
-    ? Math.round((Date.now() - result.timestamp) / 1000)
-    : null;
+  const resultAge = result ? Math.round((Date.now() - result.timestamp) / 1000) : null;
 
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderRadius: 8,
-      overflow: 'hidden',
-    }}>
-
-      {/* ── Header ── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '12px 16px',
-          borderBottom: expanded ? '1px solid var(--border)' : 'none',
-          cursor: 'pointer',
-          userSelect: 'none',
-        }}
+    <Card>
+      {/* ── Header (collapsible) ── */}
+      <CardHeader
+        className="pb-3 pt-4 px-4 cursor-pointer select-none"
         onClick={() => setExpanded(e => !e)}
       >
-        <span style={{ fontSize: 16 }}>🌾</span>
-        <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', color: '#22c55e' }}>
-          AI CROP ADVISOR
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>
-          — plain-language field diagnosis
-        </span>
-        <div style={{ flex: 1 }} />
-        {result && !loading && (
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-            analysed {resultAge}s ago · {PROVIDERS.find(p => p.id === result.provider)?.label}
-          </span>
-        )}
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>
-          {expanded ? '▲' : '▼'}
-        </span>
-      </div>
+        <div className="flex items-center gap-2">
+          <Leaf size={14} className="text-emerald-400 shrink-0" />
+          <CardTitle className="text-sm">AI Crop Advisor</CardTitle>
+          <span className="text-xs text-muted-foreground font-normal">— plain-language field diagnosis</span>
+          <div className="flex-1" />
+          {result && !loading && (
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {resultAge}s ago · {PROVIDERS.find(p => p.id === result.provider)?.label}
+            </span>
+          )}
+          {expanded
+            ? <ChevronUp size={14} className="text-muted-foreground shrink-0" />
+            : <ChevronDown size={14} className="text-muted-foreground shrink-0" />
+          }
+        </div>
+      </CardHeader>
 
       {expanded && (
-        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <CardContent className="px-4 pb-4 pt-0 flex flex-col gap-4">
 
           {/* ── Provider + Key row ── */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+          <div className="flex items-end gap-3 flex-wrap">
 
             {/* Provider tabs */}
             <div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 5 }}>
-                AI PROVIDER
-              </div>
-              <div style={{ display: 'flex', gap: 4 }}>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                AI Provider
+              </p>
+              <div className="flex gap-1.5">
                 {PROVIDERS.map(p => (
-                  <button
+                  <Button
                     key={p.id}
-                    className="btn"
-                    onClick={e => { e.stopPropagation(); setProvider(p.id); setResult(null); setError(null); }}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: provider === p.id ? 700 : 400,
-                      borderColor: provider === p.id ? p.color : undefined,
-                      color: provider === p.id ? p.color : undefined,
-                      background: provider === p.id ? `${p.color}18` : undefined,
+                    size="sm"
+                    variant="outline"
+                    className={cn(
+                      'h-7 text-xs px-3',
+                      provider === p.id && 'border-emerald-500/60 text-emerald-400 bg-emerald-500/10',
+                    )}
+                    onClick={e => {
+                      e.stopPropagation();
+                      setProvider(p.id);
+                      setResult(null);
+                      setError(null);
                     }}
                   >
                     {p.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
 
             {/* API key input */}
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 5 }}>
-                API KEY
-                <span style={{ marginLeft: 8, color: '#6b7280', fontWeight: 400, letterSpacing: 0 }}>
-                  (session-only — never stored or transmitted to any server)
+            <div className="flex-1 min-w-[220px]">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                API Key
+                <span className="ml-2 normal-case font-normal tracking-normal text-muted-foreground/60">
+                  (session-only — never stored)
                 </span>
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input
-                  className="input"
+              </p>
+              <div className="flex gap-1.5">
+                <Input
                   type={showKey ? 'text' : 'password'}
                   placeholder={`Paste your ${providerMeta.label} API key…`}
                   value={apiKey}
                   onChange={e => { setApiKey(e.target.value); setError(null); }}
                   onClick={e => e.stopPropagation()}
-                  style={{ flex: 1, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}
+                  className="flex-1 h-8 text-xs font-mono"
                   autoComplete="off"
                   spellCheck={false}
                 />
-                <button
-                  className="btn"
-                  title={showKey ? 'Hide key' : 'Reveal key'}
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0"
+                  title={showKey ? 'Hide key' : 'Show key'}
                   onClick={e => { e.stopPropagation(); setShowKey(s => !s); }}
-                  style={{ fontSize: 14, padding: '0 10px' }}
                 >
-                  {showKey ? '🙈' : '👁'}
-                </button>
+                  {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
+                </Button>
                 {apiKey && (
-                  <button
-                    className="btn"
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
                     title="Clear key"
                     onClick={e => { e.stopPropagation(); setApiKey(''); setError(null); }}
-                    style={{ fontSize: 12, color: '#ef4444' }}
                   >
-                    ✕
-                  </button>
+                    <X size={12} />
+                  </Button>
                 )}
               </div>
             </div>
 
             {/* Analyze button */}
-            <button
-              className={`btn ${canAnalyze ? 'btn-green' : ''}`}
+            <Button
+              size="sm"
+              className="h-8 text-xs gap-1.5 whitespace-nowrap"
               disabled={!canAnalyze}
               onClick={e => { e.stopPropagation(); handleAnalyze(); }}
-              style={{
-                whiteSpace: 'nowrap',
-                fontWeight: 600,
-                fontSize: 12,
-                opacity: canAnalyze ? 1 : 0.45,
-                minWidth: 120,
-              }}
             >
               {loading
-                ? '⏳ Analysing…'
+                ? <><Loader2 size={12} className="spin-anim" /> Analysing…</>
                 : !lastPacket
                   ? 'No data yet'
-                  : '🔍 Analyse Crops'}
-            </button>
+                  : <><Search size={12} /> Analyse Crops</>
+              }
+            </Button>
           </div>
 
-          {/* ── Loading shimmer ── */}
+          {/* ── Loading state ── */}
           {loading && (
-            <div style={{
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: '14px 16px',
-              color: 'var(--text-muted)',
-              fontSize: 13,
-              fontStyle: 'italic',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-            }}>
-              <span style={{ fontSize: 18, animation: 'spin 1s linear infinite' }}>🌀</span>
+            <div className="rounded-md border border-border bg-muted/30 px-4 py-3 flex items-center gap-3 text-sm text-muted-foreground italic">
+              <Loader2 size={16} className="spin-anim shrink-0 text-emerald-400" />
               Asking {providerMeta.label} to analyse your field data…
             </div>
           )}
 
           {/* ── Error state ── */}
           {error && !loading && (
-            <div style={{
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: 6,
-              padding: '12px 14px',
-              display: 'flex',
-              gap: 10,
-              alignItems: 'flex-start',
-            }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+            <div className="rounded-md border border-red-500/30 bg-red-500/5 px-4 py-3 flex gap-3 items-start">
+              <AlertCircle size={14} className="mt-0.5 shrink-0 text-red-400" />
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#ef4444', marginBottom: 3 }}>
-                  API Error
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{error}</div>
+                <p className="text-xs font-semibold text-red-400 mb-1">API Error</p>
+                <p className="text-xs text-muted-foreground">{error}</p>
               </div>
             </div>
           )}
 
-          {/* ── Result card ── */}
+          {/* ── Result ── */}
           {result && !loading && (
-            <div style={{
-              background: 'var(--bg-primary)',
-              border: `1px solid ${PROVIDERS.find(p => p.id === result.provider)!.color}44`,
-              borderLeft: `3px solid ${PROVIDERS.find(p => p.id === result.provider)!.color}`,
-              borderRadius: 6,
-              padding: '14px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}>
-              {/* Result header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14 }}>🌾</span>
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: PROVIDERS.find(p => p.id === result.provider)!.color,
-                  letterSpacing: '0.06em',
-                }}>
-                  {PROVIDERS.find(p => p.id === result.provider)!.label.toUpperCase()} FIELD DIAGNOSIS
+            <div className="rounded-md border border-border bg-muted/30 px-4 py-3 flex flex-col gap-2 border-l-2 border-l-emerald-500/60">
+              <div className="flex items-center gap-2">
+                <Leaf size={12} className="text-emerald-400 shrink-0" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                  {PROVIDERS.find(p => p.id === result.provider)?.label} Field Diagnosis
                 </span>
-                <div style={{ flex: 1 }} />
-                <span style={{
-                  fontSize: 10,
-                  color: 'var(--text-muted)',
-                  fontFamily: 'JetBrains Mono, monospace',
-                }}>
+                <div className="flex-1" />
+                <span className="font-mono text-[10px] text-muted-foreground">
                   based on reading at {new Date(result.timestamp).toLocaleTimeString()}
                 </span>
               </div>
-              {/* Result text */}
-              <p style={{
-                fontSize: 13.5,
-                lineHeight: 1.7,
-                color: 'var(--text-primary)',
-                margin: 0,
-                whiteSpace: 'pre-wrap',
-              }}>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                 {result.text.trim()}
               </p>
-              {/* Re-analyze nudge */}
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+              <p className="text-[10px] text-muted-foreground">
                 Press the button again after the next reading to update the diagnosis.
-              </div>
+              </p>
             </div>
           )}
 
-          {/* ── Empty state (no data yet, no result) ── */}
+          {/* ── Empty state ── */}
           {!lastPacket && !loading && !result && !error && (
-            <div style={{
-              fontSize: 12,
-              color: 'var(--text-muted)',
-              fontStyle: 'italic',
-              padding: '4px 0',
-            }}>
+            <p className="text-xs text-muted-foreground italic">
               Waiting for first sensor reading before analysis is available.
-            </div>
+            </p>
           )}
 
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 };

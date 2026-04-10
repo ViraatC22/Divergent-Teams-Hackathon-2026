@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
+import { Wifi, WifiOff, Loader2, Pencil, Check, X } from 'lucide-react';
 import type { ConnectionStatus, ClassificationResult } from '../types';
 import { CLASSIFICATION_COLORS } from '../config';
 import { formatTimeAgo } from '../utils/formatters';
 import { healthColor } from '../engine/healthScore';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Separator } from './ui/separator';
+import { cn } from '../lib/utils';
 
 interface Props {
   connectionStatus: ConnectionStatus;
@@ -18,135 +23,124 @@ interface Props {
 }
 
 export const StatusBar: React.FC<Props> = ({
-  connectionStatus,
-  wsUrl,
-  onWsUrlChange,
-  onConnect,
-  simulationMode,
-  onToggleSimulation,
-  lastPacketTime,
-  isStale,
-  healthScore,
-  classification,
+  connectionStatus, wsUrl, onWsUrlChange, onConnect,
+  simulationMode, onToggleSimulation,
+  lastPacketTime, isStale, healthScore, classification,
 }) => {
-  const [editing, setEditing] = useState(false);
-  const [editUrl, setEditUrl] = useState(wsUrl);
+  const [editing, setEditing]   = useState(false);
+  const [editUrl, setEditUrl]   = useState(wsUrl);
 
-  const dotClass =
-    connectionStatus === 'connected' ? 'dot-green' :
-    connectionStatus === 'reconnecting' ? 'dot-amber conn-blink' :
-    'dot-red';
+  const isConnected    = connectionStatus === 'connected';
+  const isReconnecting = connectionStatus === 'reconnecting';
 
-  const statusLabel =
-    connectionStatus === 'connected' ? (simulationMode ? 'SIMULATION' : 'CONNECTED') :
-    connectionStatus === 'reconnecting' ? 'RECONNECTING' :
-    'DISCONNECTED';
+  const statusText =
+    isConnected    ? (simulationMode ? 'Simulation' : 'Live') :
+    isReconnecting ? 'Reconnecting' :
+    'Offline';
+
+  const dataText =
+    lastPacketTime === 0 ? 'Awaiting reading…' :
+    isStale              ? `Awaiting reading · last ${formatTimeAgo(lastPacketTime)}` :
+                           formatTimeAgo(lastPacketTime);
 
   const hColor = healthColor(healthScore);
   const cColor = CLASSIFICATION_COLORS[classification.label];
 
-  const handleUrlSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onWsUrlChange(editUrl);
     setEditing(false);
     onConnect();
   };
 
-  // Neutral idle text: shown when no reading has arrived yet, or between button presses
-  const dataStatusText = lastPacketTime === 0
-    ? 'Awaiting reading…'
-    : isStale
-      ? `Awaiting reading… · last ${formatTimeAgo(lastPacketTime)}`
-      : formatTimeAgo(lastPacketTime);
-
   return (
-    <div style={{
-      background: 'var(--bg-card)',
-      borderBottom: '1px solid var(--border)',
-      padding: '10px 20px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 20,
-      flexWrap: 'wrap',
-      position: 'sticky',
-      top: 0,
-      zIndex: 50,
-    }}>
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-card px-5">
       {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', color: '#22c55e' }}>
-          AGRISWARM
+      <span className="text-sm font-semibold tracking-tight text-foreground">AgriSwarm</span>
+      <span className="text-xs text-muted-foreground">Field Monitor</span>
+
+      <Separator orientation="vertical" className="h-5" />
+
+      {/* Connection status */}
+      <div className="flex items-center gap-2">
+        {isConnected ? (
+          <Wifi size={14} className={simulationMode ? 'text-amber-400' : 'text-emerald-400'} />
+        ) : isReconnecting ? (
+          <Loader2 size={14} className="text-amber-400 conn-blink" />
+        ) : (
+          <WifiOff size={14} className="text-muted-foreground" />
+        )}
+        <span className={cn(
+          'text-xs font-medium',
+          isConnected    ? (simulationMode ? 'text-amber-400' : 'text-emerald-400') :
+          isReconnecting ? 'text-amber-400' :
+          'text-muted-foreground',
+        )}>
+          {statusText}
         </span>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em' }}>FIELD MONITOR</span>
       </div>
 
-      {/* Divider */}
-      <div style={{ width: 1, height: 24, background: 'var(--border)' }} />
-
-      {/* Connection */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span className={`dot ${dotClass}`} />
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
-          {statusLabel}
-        </span>
-      </div>
-
-      {/* Server URL */}
+      {/* URL editor */}
       {!simulationMode && (
         editing ? (
-          <form onSubmit={handleUrlSubmit} style={{ display: 'flex', gap: 6 }}>
-            <input
-              className="input"
-              style={{ width: 200 }}
+          <form onSubmit={handleSubmit} className="flex items-center gap-2">
+            <Input
               value={editUrl}
               onChange={e => setEditUrl(e.target.value)}
+              className="h-7 w-56 text-xs"
               autoFocus
             />
-            <button type="submit" className="btn btn-green" style={{ whiteSpace: 'nowrap' }}>Connect</button>
-            <button type="button" className="btn" onClick={() => setEditing(false)}>Cancel</button>
+            <Button type="submit" size="icon" variant="ghost" className="h-7 w-7">
+              <Check size={13} />
+            </Button>
+            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(false)}>
+              <X size={13} />
+            </Button>
           </form>
         ) : (
           <button
-            className="btn"
             onClick={() => { setEditUrl(wsUrl); setEditing(true); }}
-            style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
           >
             {wsUrl}
+            <Pencil size={11} />
           </button>
         )
       )}
 
-      {/* Data status — neutral idle, no warning state */}
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-        {dataStatusText}
+      {/* Data freshness */}
+      <span className="text-xs text-muted-foreground font-mono">{dataText}</span>
+
+      <div className="flex-1" />
+
+      {/* Health score */}
+      <div className="flex items-baseline gap-1">
+        <span className="text-xs text-muted-foreground">Health</span>
+        <span className="font-mono text-lg font-bold" style={{ color: hColor }}>{healthScore}</span>
+        <span className="text-xs text-muted-foreground">/100</span>
       </div>
 
-      <div style={{ flex: 1 }} />
-
-      {/* Health Score */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.08em' }}>HEALTH</span>
-        <span className="font-mono" style={{ fontSize: 26, fontWeight: 700, color: hColor, lineHeight: 1 }}>
-          {healthScore}
-        </span>
-      </div>
+      <Separator orientation="vertical" className="h-5" />
 
       {/* Classification */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: cColor }}>{classification.label}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+      <div className="flex flex-col items-end">
+        <span className="text-xs font-semibold" style={{ color: cColor }}>{classification.label}</span>
+        <span className="font-mono text-[10px] text-muted-foreground">
           {(classification.confidence * 100).toFixed(0)}% conf
         </span>
       </div>
 
-      {/* Simulation toggle */}
-      <button
-        className={`btn ${simulationMode ? 'btn-amber' : ''}`}
+      <Separator orientation="vertical" className="h-5" />
+
+      {/* Simulate toggle */}
+      <Button
+        size="sm"
+        variant={simulationMode ? 'secondary' : 'default'}
         onClick={onToggleSimulation}
-        style={{ whiteSpace: 'nowrap' }}
+        className="text-xs"
       >
-        {simulationMode ? '⏹ Stop Sim' : '▶ Simulate'}
-      </button>
-    </div>
+        {simulationMode ? 'Stop Sim' : 'Simulate'}
+      </Button>
+    </header>
   );
 };

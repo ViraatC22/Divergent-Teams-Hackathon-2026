@@ -1,126 +1,113 @@
 import React from 'react';
+import { Download } from 'lucide-react';
 import type { ClassificationLabel, ChannelName, ChannelState, ClassificationEntry, SensorPacket } from '../types';
 import { CHANNELS } from '../types';
-import { CHANNEL_LABELS as CH_LABELS } from '../config';
+import { CHANNEL_LABELS } from '../config';
 import { formatDuration } from '../utils/formatters';
 import { exportJSON, exportCSV } from '../utils/export';
 import { DonutChart } from './DonutChart';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { cn } from '../lib/utils';
 
 interface Props {
-  sessionStart: number;
-  totalPackets: number;
-  channelStates: Record<ChannelName, ChannelState>;
+  sessionStart:                number;
+  totalPackets:                number;
+  channelStates:               Record<ChannelName, ChannelState>;
   sessionClassificationCounts: Record<ClassificationLabel, number>;
-  classificationLog: ClassificationEntry[];
-  allPackets: SensorPacket[];
-  correlationInsights: string[];
+  classificationLog:           ClassificationEntry[];
+  allPackets:                  SensorPacket[];
+  correlationInsights:         string[];
 }
 
 export const SessionSummary: React.FC<Props> = ({
-  sessionStart,
-  totalPackets,
-  channelStates,
-  sessionClassificationCounts,
-  classificationLog,
-  allPackets,
-  correlationInsights,
+  sessionStart, totalPackets, channelStates,
+  sessionClassificationCounts, classificationLog, allPackets, correlationInsights,
 }) => {
-  const elapsed = Date.now() - sessionStart;
-
-  // Top finding: highest |r| insight or a crossing warning
+  const elapsed    = Date.now() - sessionStart;
   const topFinding = correlationInsights[0] ?? 'No significant patterns detected yet.';
 
-  // Max anomaly channel
-  const maxAnomalyChannel = CHANNELS.reduce((best, ch) =>
-    channelStates[ch].anomalyCount > channelStates[best].anomalyCount ? ch : best
-  , CHANNELS[0]);
+  const maxAnomalyCount = Math.max(1, ...CHANNELS.map(ch => channelStates[ch].anomalyCount));
+
+  const stats = [
+    { label: 'Duration',        value: formatDuration(elapsed) },
+    { label: 'Readings',        value: totalPackets.toLocaleString() },
+    { label: 'Classifications', value: classificationLog.length.toString() },
+  ];
 
   return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="section-title">Session Summary</div>
+    <Card>
+      <CardHeader className="pb-3 pt-4 px-4">
+        <CardTitle className="text-sm">Session Summary</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0 flex flex-col gap-5">
 
-      {/* Stats row */}
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Duration</div>
-          <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0' }}>
-            {formatDuration(elapsed)}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Data Points</div>
-          <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0' }}>
-            {totalPackets.toLocaleString()}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Classifications</div>
-          <div className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0' }}>
-            {classificationLog.length}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-        {/* Time-in-state donut */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-            Time in State
-          </div>
-          <DonutChart counts={sessionClassificationCounts} />
+        {/* Stat row */}
+        <div className="flex gap-8 flex-wrap">
+          {stats.map(({ label, value }) => (
+            <div key={label}>
+              <p className="text-xs text-muted-foreground mb-1">{label}</p>
+              <p className="font-mono text-xl font-bold text-foreground">{value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Anomaly counts */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-            Anomaly Count by Channel
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          {/* Donut chart */}
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Time in State</p>
+            <DonutChart counts={sessionClassificationCounts} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {CHANNELS.map(ch => {
-              const count = channelStates[ch].anomalyCount;
-              const maxCount = Math.max(1, ...CHANNELS.map(c => channelStates[c].anomalyCount));
-              const pct = (count / maxCount) * 100;
-              return (
-                <div key={ch}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, fontSize: 11 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{CH_LABELS[ch]}</span>
-                    <span className="font-mono" style={{ color: count > 0 ? '#f59e0b' : 'var(--text-muted)' }}>{count}</span>
+
+          {/* Anomaly bars */}
+          <div>
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Anomalies by Channel
+            </p>
+            <div className="flex flex-col gap-3">
+              {CHANNELS.map(ch => {
+                const count = channelStates[ch].anomalyCount;
+                const pct   = (count / maxAnomalyCount) * 100;
+                return (
+                  <div key={ch}>
+                    <div className="flex justify-between mb-1 text-xs">
+                      <span className="text-muted-foreground">{CHANNEL_LABELS[ch]}</span>
+                      <span className={cn('font-mono', count > 0 ? 'text-amber-400' : 'text-muted-foreground')}>
+                        {count}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all', count > 0 ? 'bg-amber-400' : 'bg-border')}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: count > 0 ? '#f59e0b' : '#2a3441', borderRadius: 2, transition: 'width 0.3s' }} />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Top finding */}
-      <div style={{
-        padding: '10px 14px',
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-      }}>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          Top Finding
+        {/* Top finding */}
+        <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Top Finding</p>
+          <p className="text-sm text-foreground leading-relaxed">
+            <span className="mr-1.5 text-emerald-400">›</span>
+            {topFinding}
+          </p>
         </div>
-        <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>
-          <span style={{ color: '#22c55e', marginRight: 6 }}>▸</span>
-          {topFinding}
-        </div>
-      </div>
 
-      {/* Export */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-green" onClick={() => exportJSON(allPackets, classificationLog)}>
-          ↓ Export JSON
-        </button>
-        <button className="btn" onClick={() => exportCSV(allPackets)}>
-          ↓ Export CSV
-        </button>
-      </div>
-    </div>
+        {/* Export */}
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => exportJSON(allPackets, classificationLog)}>
+            <Download size={12} /> JSON
+          </Button>
+          <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => exportCSV(allPackets)}>
+            <Download size={12} /> CSV
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
