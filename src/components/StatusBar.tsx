@@ -52,6 +52,13 @@ export const StatusBar: React.FC<Props> = ({
     onConnect();
   };
 
+  // Neutral idle text: shown when no reading has arrived yet, or between button presses
+  const dataStatusText = lastPacketTime === 0
+    ? 'Awaiting reading…'
+    : isStale
+      ? `Awaiting reading… · last ${formatTimeAgo(lastPacketTime)}`
+      : formatTimeAgo(lastPacketTime);
+
   return (
     <div style={{
       background: 'var(--bg-card)',
@@ -84,7 +91,7 @@ export const StatusBar: React.FC<Props> = ({
         </span>
       </div>
 
-      {/* WS URL */}
+      {/* Server URL */}
       {!simulationMode && (
         editing ? (
           <form onSubmit={handleUrlSubmit} style={{ display: 'flex', gap: 6 }}>
@@ -109,12 +116,9 @@ export const StatusBar: React.FC<Props> = ({
         )
       )}
 
-      {/* Last data */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
-        {isStale && <span>⚠️</span>}
-        <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-          {lastPacketTime > 0 ? formatTimeAgo(lastPacketTime) : '—'}
-        </span>
+      {/* Data status — neutral idle, no warning state */}
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+        {dataStatusText}
       </div>
 
       <div style={{ flex: 1 }} />

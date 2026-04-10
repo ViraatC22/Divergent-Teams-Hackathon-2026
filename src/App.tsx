@@ -57,7 +57,7 @@ function buildRecommendation(label: ClassificationLabel, kv: Record<string, stri
     case 'Drought Risk':
       return `Temperature at ${kv.temp ?? '?'} with soil contact at ${kv.soil ?? '?'} — irrigate this zone immediately`;
     case 'Pest Alert':
-      return `Vibration of ${kv.vibration ?? '?'} detected with obstacle at ${kv.distance ?? '?'} — inspect for pest activity`;
+      return `Vibration of ${kv.vibration ?? '?'} detected at ${kv.altitude ?? '?'} elevation — inspect for pest activity`;
     case 'Terrain Warning':
       return `Tilt at ${kv.tiltX ?? '?'} / ${kv.tiltY ?? '?'} — terrain erosion risk, avoid heavy equipment`;
     default:
@@ -71,7 +71,7 @@ export default function App() {
 
   // Mutable refs (no re-render needed)
   const bufferRef = useRef<Record<ChannelName, number[]>>({
-    distance: [], temperature: [], pressure: [], soilPercent: [], vibrationRMS: [],
+    altitude: [], temperature: [], pressure: [], soilPercent: [], vibrationRMS: [],
   });
   const wsManagerRef = useRef<WSManager | null>(null);
   const simulatorRef = useRef<Simulator | null>(null);
@@ -80,7 +80,7 @@ export default function App() {
   const forecastTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // UI state
-  const [wsUrl, setWsUrl] = useState(WS_DEFAULT_URL);
+  const [wsUrl, setWsUrl] = useState(WS_DEFAULT_URL); // ws://localhost:3001 — local Express bridge
   const [connStatus, setConnStatus] = useState<ConnStatus>('disconnected');
   const [simulationMode, setSimulationMode] = useState(false);
   const [snapshot, setSnapshot] = useState<AppSnapshot>(makeInitialSnapshot);

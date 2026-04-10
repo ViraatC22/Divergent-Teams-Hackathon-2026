@@ -1,6 +1,6 @@
 import type { ChannelName, ClassificationLabel } from './types';
 
-export const WS_DEFAULT_URL = 'ws://192.168.4.1:81';
+export const WS_DEFAULT_URL = 'ws://localhost:3001';
 export const BUFFER_SIZE = 150;
 export const RECONNECT_INTERVAL_MS = 3000;
 export const STALE_THRESHOLD_MS = 6000;
@@ -14,7 +14,7 @@ export const FORECAST_INTERVAL_MS = 10000;
 export const SPARKLINE_SAMPLES = 30;
 
 export const CHANNEL_LABELS: Record<ChannelName, string> = {
-  distance: 'Distance',
+  altitude: 'Altitude',
   temperature: 'Temperature',
   pressure: 'Pressure',
   soilPercent: 'Soil Moisture',
@@ -22,7 +22,7 @@ export const CHANNEL_LABELS: Record<ChannelName, string> = {
 };
 
 export const CHANNEL_UNITS: Record<ChannelName, string> = {
-  distance: 'cm',
+  altitude: 'm',
   temperature: '°C',
   pressure: 'hPa',
   soilPercent: '%',
@@ -30,7 +30,7 @@ export const CHANNEL_UNITS: Record<ChannelName, string> = {
 };
 
 export const CHANNEL_ICONS: Record<ChannelName, string> = {
-  distance: '📡',
+  altitude: '⛰',
   temperature: '🌡',
   pressure: '🌀',
   soilPercent: '🌱',
@@ -42,6 +42,7 @@ export const THRESHOLDS = {
   soilPercent: { criticalLow: 15, warningLow: 25, warningHigh: 80 },
   vibrationRMS: { maxExpected: 10 },
   tilt: { maxExpected: 45 },
+  altitude: { maxVariation: 50 }, // meaningful swing over a session (metres)
 } as const;
 
 export const HEALTH_WEIGHTS = {

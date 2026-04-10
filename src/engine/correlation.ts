@@ -5,14 +5,14 @@ import { pearson } from '../utils/stats';
 const insightTemplates: Record<string, string> = {
   'temperature_soilPercent':  'Soil dryness correlated with temperature',
   'temperature_pressure':     'Pressure shifts tracking temperature change',
-  'distance_vibrationRMS':    'Vibration spikes coincide with nearby obstacles',
+  'altitude_pressure':        'Altitude inversely tracks barometric pressure',
   'soilPercent_pressure':     'Soil moisture linked to barometric changes',
   'soilPercent_vibrationRMS': 'Ground disturbance affecting moisture readings',
-  'distance_temperature':     'Temperature variation near obstructions',
-  'distance_pressure':        'Pressure changes near obstacles',
-  'distance_soilPercent':     'Soil conditions vary with obstacle proximity',
+  'altitude_temperature':     'Temperature variation with altitude change',
+  'altitude_soilPercent':     'Soil conditions vary with terrain elevation',
   'pressure_vibrationRMS':    'Vibration linked to pressure changes',
   'temperature_vibrationRMS': 'Temperature shifts coincide with vibration',
+  'altitude_vibrationRMS':    'Terrain elevation correlates with ground vibration',
 };
 
 export function computeCorrelationMatrix(buffers: Record<ChannelName, number[]>): number[][] {

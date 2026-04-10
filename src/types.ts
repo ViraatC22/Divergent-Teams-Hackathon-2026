@@ -1,6 +1,6 @@
 export interface SensorPacket {
   timestamp: number;
-  distance: number;
+  altitude: number;
   temperature: number;
   pressure: number;
   soilRaw: number;
@@ -10,24 +10,54 @@ export interface SensorPacket {
   vibrationRMS: number;
 }
 
+/**
+ * Parses the ESP32 wire format:
+ * T:25.8C | P:990.2hPa | Alt:193.8m | Acc:-0.4,0.1,10.3 | Tilt:0.7,2.2 | M:912
+ */
 export function parsePacket(raw: string): SensorPacket | null {
-  const parts = raw.trim().split(',').map(Number);
-  if (parts.length !== 7 || parts.some(isNaN)) return null;
-  return {
-    timestamp: Date.now(),
-    distance: parts[0],
-    temperature: parts[1],
-    pressure: parts[2],
-    soilRaw: parts[3],
-    soilPercent: Math.round((parts[3] / 1023) * 100),
-    tiltX: parts[4],
-    tiltY: parts[5],
-    vibrationRMS: parts[6],
-  };
+  try {
+    const tMatch   = raw.match(/T:([\-\d.]+)C/);
+    const pMatch   = raw.match(/P:([\-\d.]+)hPa/);
+    const altMatch = raw.match(/Alt:([\-\d.]+)m/);
+    const accMatch = raw.match(/Acc:([\-\d.]+),([\-\d.]+),([\-\d.]+)/);
+    const tiltMatch = raw.match(/Tilt:([\-\d.]+),([\-\d.]+)/);
+    const mMatch   = raw.match(/M:(\d+)/);
+
+    if (!tMatch || !pMatch || !altMatch || !accMatch || !tiltMatch || !mMatch) return null;
+
+    const temperature = parseFloat(tMatch[1]);
+    const pressure    = parseFloat(pMatch[1]);
+    const altitude    = parseFloat(altMatch[1]);
+    const accX        = parseFloat(accMatch[1]);
+    const accY        = parseFloat(accMatch[2]);
+    const accZ        = parseFloat(accMatch[3]);
+    const tiltX       = parseFloat(tiltMatch[1]);
+    const tiltY       = parseFloat(tiltMatch[2]);
+    const soilRaw     = parseInt(mMatch[1], 10);
+
+    if ([temperature, pressure, altitude, accX, accY, accZ, tiltX, tiltY, soilRaw].some(isNaN)) return null;
+
+    const vibrationRMS = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
+    const soilPercent  = Math.round((soilRaw / 1023) * 100);
+
+    return {
+      timestamp: Date.now(),
+      altitude,
+      temperature,
+      pressure,
+      soilRaw,
+      soilPercent,
+      tiltX,
+      tiltY,
+      vibrationRMS,
+    };
+  } catch {
+    return null;
+  }
 }
 
-export type ChannelName = 'distance' | 'temperature' | 'pressure' | 'soilPercent' | 'vibrationRMS';
-export const CHANNELS: ChannelName[] = ['distance', 'temperature', 'pressure', 'soilPercent', 'vibrationRMS'];
+export type ChannelName = 'altitude' | 'temperature' | 'pressure' | 'soilPercent' | 'vibrationRMS';
+export const CHANNELS: ChannelName[] = ['altitude', 'temperature', 'pressure', 'soilPercent', 'vibrationRMS'];
 
 export interface ChannelState {
   buffer: number[];

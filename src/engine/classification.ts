@@ -13,7 +13,6 @@ const rules: Record<string, Rule[]> = {
   ],
   pest: [
     { check: (p) => p.vibrationRMS > 1.5,   trigger: 'High vibration' },
-    { check: (p) => p.distance < 15,        trigger: 'Close obstacle' },
   ],
   terrain: [
     { check: (p) => Math.abs(p.tiltX) > 20, trigger: 'Steep X tilt' },
@@ -63,7 +62,7 @@ function buildKeyValues(p: SensorPacket, label: ClassificationLabel): Record<str
     case 'Pest Alert':
       return {
         vibration: `${p.vibrationRMS.toFixed(2)}g`,
-        distance: `${p.distance.toFixed(1)}cm`,
+        altitude: `${p.altitude.toFixed(1)}m`,
       };
     case 'Terrain Warning':
       return {
