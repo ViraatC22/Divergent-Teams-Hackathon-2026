@@ -1,10 +1,76 @@
-# AgriSwarm Web Dashboard — Build Specification
+# AgriSwarm Web Dashboard
 
 ## What This Is
 
-A single-page React + TypeScript web dashboard for an agricultural field robot. It connects to an ESP8266 over WebSocket on a local WiFi hotspot, ingests live sensor data every 2 seconds, and runs all analytics client-side with **zero cloud backend and zero internet dependency**.
+A single-page React + TypeScript web dashboard for an agricultural field robot (ESP32). It ingests live sensor data via a WebSocket bridge server and runs all analytics client-side.
 
-This is for a hackathon demo. It must look polished, work reliably, and impress judges.
+---
+
+## How to Run
+
+### 1. Install dependencies
+
+```bash
+npm install --legacy-peer-deps
+```
+
+> Use `--legacy-peer-deps` — the project pins Vite 8 which has a peer conflict with `@vitejs/plugin-react`.
+
+### 2. Start the bridge server (in one terminal)
+
+```bash
+node server/index.js
+```
+
+This runs on `http://localhost:3001`. It receives HTTP POSTs from the ESP32 and forwards the data to the dashboard over WebSocket.
+
+### 3. Start the frontend (in another terminal)
+
+```bash
+npm run dev
+```
+
+Opens at `http://localhost:5174` (or 5173 if the port is free). In the dashboard, the WebSocket URL field should be set to `ws://localhost:3001`.
+
+### 4. Expose the bridge server to the internet (for ESP32)
+
+```bash
+ngrok http 3001
+```
+
+Copy the `https://xxxx.ngrok-free.app` URL and paste it into `hardwareCode.ino` as the `serverName`:
+
+```cpp
+const char* serverName = "https://xxxx.ngrok-free.app/data";
+```
+
+Then re-flash the ESP32. The dashboard WebSocket stays as `ws://localhost:3001` — ngrok is only needed so the ESP32 can reach your machine.
+
+---
+
+## Common Mistakes
+
+### "Awaiting reading" shows even though the terminal is getting updates
+
+The bridge server receives data fine, but the dashboard marks it stale because the ESP32 sends every ~6-7 seconds (5s delay + processing + ngrok latency) and the stale threshold was set to 6s. The threshold in [src/config.ts](src/config.ts) has been updated to 12s to account for this.
+
+If your ESP32 has a longer send interval, increase `STALE_THRESHOLD_MS` in `src/config.ts` to at least 2× your `delay()` value.
+
+### Dashboard shows "Awaiting reading" but no data appears in the cards at all
+
+The parser in [src/types.ts](src/types.ts) expects `Acc` and `Tilt` values separated by either `,` or `|`. If you change the ESP32 payload format, make sure the regex patterns in `parsePacket()` match what the hardware actually sends. A mismatch causes `parsePacket` to silently return `null` and drop every packet.
+
+You can verify what the ESP32 is sending by watching the bridge server terminal — it prints each raw payload.
+
+### Soil moisture reads much lower than expected
+
+The ESP32's ADC is 12-bit (range 0–4095). The soil percent is calculated as `soilRaw / 4095 * 100`. If you swap to a different microcontroller with a 10-bit ADC (range 0–1023), update the divisor in `parsePacket()` inside [src/types.ts](src/types.ts).
+
+### ngrok URL changes every restart
+
+On the free ngrok plan, the public URL is randomized each session. Every time you restart ngrok you must update `serverName` in `hardwareCode.ino` and re-flash the ESP32. Upgrade to a paid ngrok plan (static domain) or use a different tunnel tool to avoid this.
+
+---
 
 ---
 
