@@ -26,6 +26,7 @@ import { TrendForecast } from './components/TrendForecast';
 import { HistoricalChart } from './components/HistoricalChart';
 import { AlertFeed } from './components/AlertFeed';
 import { SessionSummary } from './components/SessionSummary';
+import { AIAdvisor } from './components/AIAdvisor';
 
 // ─── Connection type ──────────────────────────────────────────────────────────
 type ConnStatus = 'connected' | 'reconnecting' | 'disconnected';
@@ -291,6 +292,15 @@ export default function App() {
       />
 
       <main style={{ padding: '20px', maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* ── AI Crop Advisor ── */}
+        <AIAdvisor
+          lastPacket={snapshot.lastPacket}
+          classification={snapshot.classification}
+          healthScore={snapshot.healthScore}
+          channelStates={snapshot.channelStates}
+          correlationInsights={periodic.correlationInsights}
+        />
 
         {/* ── Section 1: Sensor Cards ── */}
         <div>
