@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import gsap from 'gsap';
 import type {
   SensorPacket, ChannelName, AppSnapshot, PeriodicState,
   AlertEntry, ClassificationEntry, ClassificationLabel,
@@ -94,6 +95,37 @@ export default function App() {
 
   // Classification history for chart background bands
   const classHistoryRef = useRef<{ timestamp: number; label: ClassificationLabel }[]>([]);
+
+  // Boot sequence refs
+  const statusBarWrapRef   = useRef<HTMLDivElement>(null);
+  const sensorSectionRef   = useRef<HTMLDivElement>(null);
+  const analysisSectionRef = useRef<HTMLDivElement>(null);
+  const lowerSectionsRef   = useRef<HTMLDivElement>(null);
+
+  // ── GSAP Boot Sequence ────────────────────────────────────────────────────
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+    if (statusBarWrapRef.current) {
+      tl.from(statusBarWrapRef.current, { y: -48, opacity: 0, duration: 0.55 });
+    }
+
+    if (sensorSectionRef.current) {
+      const cards = sensorSectionRef.current.querySelectorAll('.sensor-card');
+      tl.from(sensorSectionRef.current.querySelector('p'), { opacity: 0, y: 12, duration: 0.3 }, '-=0.2')
+        .from(cards, { y: 44, opacity: 0, stagger: 0.1, duration: 0.45, ease: 'back.out(1.4)' }, '-=0.15');
+    }
+
+    if (analysisSectionRef.current) {
+      const children = analysisSectionRef.current.querySelectorAll(':scope > .grid > *');
+      tl.from(children, { y: 30, opacity: 0, stagger: 0.12, duration: 0.4 }, '-=0.2');
+    }
+
+    if (lowerSectionsRef.current) {
+      const children = lowerSectionsRef.current.querySelectorAll(':scope > *');
+      tl.from(children, { scale: 0.97, opacity: 0, stagger: 0.08, duration: 0.4 }, '-=0.1');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── processPacket ─────────────────────────────────────────────────────────
   const processPacket = useCallback((packet: SensorPacket) => {
@@ -279,6 +311,7 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <div className="flex flex-col flex-1 overflow-hidden">
+        <div ref={statusBarWrapRef}>
         <StatusBar
           connectionStatus={connStatus}
           wsUrl={wsUrl}
@@ -291,8 +324,9 @@ export default function App() {
           healthScore={snapshot.healthScore}
           classification={snapshot.classification}
         />
+        </div>
 
-        <main className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+        <main className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 dashboard-bg">
 
           {/* ── AI Crop Advisor ── */}
           <AIAdvisor
@@ -304,7 +338,7 @@ export default function App() {
           />
 
           {/* ── Live Sensor Data ── */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3" ref={sensorSectionRef}>
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Live Sensor Data</p>
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
               {CHANNELS.map(ch => (
@@ -320,13 +354,16 @@ export default function App() {
           </div>
 
           {/* ── AI Analysis Engine ── */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3" ref={analysisSectionRef}>
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">AI Analysis Engine</p>
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
               <AnomalySummary channelStates={snapshot.channelStates} />
               <CorrelationHeatmap matrix={periodic.correlationMatrix} insights={periodic.correlationInsights} />
             </div>
           </div>
+
+          {/* ── Lower sections (classification onward) ── */}
+          <div ref={lowerSectionsRef} className="flex flex-col gap-5">
 
           {/* ── Classification Log ── */}
           <ClassificationLog log={snapshot.classificationLog} />
@@ -374,6 +411,8 @@ export default function App() {
             allPackets={snapshot.allPackets}
             correlationInsights={periodic.correlationInsights}
           />
+
+          </div>{/* end lower sections */}
 
         </main>
       </div>

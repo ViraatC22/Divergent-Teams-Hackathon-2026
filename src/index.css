@@ -21,7 +21,7 @@
     --accent-foreground:  0 0% 98%;
     --destructive:        0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border:             240 3.7% 10%;
+    --border:             240 3.7% 12%;
     --input:              240 3.7% 20%;
     --ring:               142.4 71.8% 29.2%;
     --radius:             0.5rem;
@@ -29,7 +29,6 @@
 }
 
 @layer base {
-  /* Ensure all border utilities use --border, not Tailwind's default gray-200 */
   * {
     @apply border-border;
     box-sizing: border-box;
@@ -58,3 +57,122 @@
 
 /* ── Font helpers ───────────────────────────────────────────────────────────── */
 .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ATMOSPHERE — noise grain overlay on background
+   ──────────────────────────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+/* ── Dot-grid background on the main scroll area ───────────────────────────── */
+.dashboard-bg {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CARD DEPTH — gradient border + elevation
+   ──────────────────────────────────────────────────────────────────────────── */
+.rounded-lg.border.bg-card {
+  border-color: transparent;
+  background-clip: padding-box;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),  /* top edge light */
+    0 1px 3px rgba(0,0,0,0.4),
+    0 4px 16px rgba(0,0,0,0.3);
+  position: relative;
+}
+
+/* Pseudo-border using outline — creates the "gradient edge" feel */
+.rounded-lg.border.bg-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  padding: 1px;
+  background: linear-gradient(
+    160deg,
+    rgba(255,255,255,0.1) 0%,
+    rgba(255,255,255,0.03) 40%,
+    rgba(255,255,255,0.0) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Header bar elevation ───────────────────────────────────────────────────── */
+header.flex.h-14 {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 4px 20px rgba(0,0,0,0.4);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SENSOR CARD — colored left border + glow states
+   ──────────────────────────────────────────────────────────────────────────── */
+.sensor-card {
+  border-left: 3px solid transparent;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.sensor-card--nominal {
+  border-left-color: rgba(16, 185, 129, 0.6);    /* emerald */
+}
+
+.sensor-card--warning {
+  border-left-color: rgba(245, 158, 11, 0.7);    /* amber */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 1px 3px rgba(0,0,0,0.4),
+    0 0 12px rgba(245, 158, 11, 0.12);
+}
+
+.sensor-card--anomalous {
+  border-left-color: rgba(239, 68, 68, 0.8);     /* red */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.07),
+    0 1px 3px rgba(0,0,0,0.4),
+    0 0 16px rgba(239, 68, 68, 0.2);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HEALTH SCORE GLOW
+   ──────────────────────────────────────────────────────────────────────────── */
+.health-glow-green  { text-shadow: 0 0 12px rgba(16, 185, 129, 0.7); }
+.health-glow-amber  { text-shadow: 0 0 12px rgba(245, 158, 11, 0.7); }
+.health-glow-red    { text-shadow: 0 0 12px rgba(239, 68, 68, 0.7); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CLASSIFICATION BADGE — bold uppercase
+   ──────────────────────────────────────────────────────────────────────────── */
+.classification-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ALERT SLIDE-IN — base visibility (GSAP drives the from-state)
+   ──────────────────────────────────────────────────────────────────────────── */
+.alert-item {
+  will-change: transform, opacity;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BOOT ANIMATION — elements start invisible, GSAP reveals them
+   ──────────────────────────────────────────────────────────────────────────── */
+.boot-hidden {
+  opacity: 0;
+}

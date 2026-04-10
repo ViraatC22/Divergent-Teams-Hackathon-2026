@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
+import gsap from 'gsap';
 import type { ForecastResult } from '../types';
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -13,11 +14,15 @@ interface Props {
 const CHART_H = 140;
 
 export const TrendForecast: React.FC<Props> = ({ forecast, label, color, unit }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const projProgress = useRef<{ t: number }>({ t: 0 });
+  const forecastRef  = useRef(forecast);
+  forecastRef.current = forecast;
 
-  const draw = useCallback(() => {
+  const draw = useCallback((projT = 1) => {
     const canvas = canvasRef.current;
-    if (!canvas || !forecast) return;
+    const fc = forecastRef.current;
+    if (!canvas || !fc) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -29,13 +34,13 @@ export const TrendForecast: React.FC<Props> = ({ forecast, label, color, unit })
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, W, H);
 
-    const hist        = forecast.historicalValues;
-    const proj        = forecast.projectedValues;
+    const hist        = fc.historicalValues;
+    const proj        = fc.projectedValues;
     const displayProj = proj.slice(0, 450);
     const totalPoints = hist.length + displayProj.length;
 
     const allValues = [...hist, ...displayProj];
-    const threshold = forecast.criticalThreshold;
+    const threshold = fc.criticalThreshold;
     const minV = Math.min(...allValues, threshold) - 2;
     const maxV = Math.max(...allValues, threshold) + 2;
     const range = maxV - minV || 1;
@@ -43,19 +48,31 @@ export const TrendForecast: React.FC<Props> = ({ forecast, label, color, unit })
     const toX = (i: number) => (i / (totalPoints - 1)) * W;
     const toY = (v: number) => H - ((v - minV) / range) * (H - 8) - 4;
 
-    // Confidence band
-    if (forecast.stdError > 0 && displayProj.length > 0) {
+    // Subtle grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let y = 0.2; y < 1; y += 0.2) {
       ctx.beginPath();
-      for (let i = 0; i < displayProj.length; i++) {
+      ctx.moveTo(0,  H * y);
+      ctx.lineTo(W, H * y);
+      ctx.stroke();
+    }
+
+    // Confidence band (only drawn up to projT progress)
+    if (fc.stdError > 0 && displayProj.length > 0) {
+      const visibleCount = Math.floor(displayProj.length * projT);
+
+      ctx.beginPath();
+      for (let i = 0; i < visibleCount; i++) {
         const x = toX(hist.length + i);
-        const y = toY(displayProj[i] + forecast.stdError);
+        const y = toY(displayProj[i] + fc.stdError);
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
-      for (let i = displayProj.length - 1; i >= 0; i--) {
-        ctx.lineTo(toX(hist.length + i), toY(displayProj[i] - forecast.stdError));
+      for (let i = visibleCount - 1; i >= 0; i--) {
+        ctx.lineTo(toX(hist.length + i), toY(displayProj[i] - fc.stdError));
       }
       ctx.closePath();
-      ctx.fillStyle = color + '22';
+      ctx.fillStyle = color + '1a';
       ctx.fill();
     }
 
@@ -70,8 +87,22 @@ export const TrendForecast: React.FC<Props> = ({ forecast, label, color, unit })
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Historical line
+    // Historical line — with subtle gradient fill underneath
     if (hist.length > 1) {
+      // Gradient fill under the historical line
+      const grad = ctx.createLinearGradient(0, toY(maxV), 0, H);
+      grad.addColorStop(0, color + '28');
+      grad.addColorStop(1, color + '00');
+      ctx.beginPath();
+      ctx.moveTo(toX(0), toY(hist[0]));
+      for (let i = 1; i < hist.length; i++) ctx.lineTo(toX(i), toY(hist[i]));
+      ctx.lineTo(toX(hist.length - 1), H);
+      ctx.lineTo(toX(0), H);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Line itself
       ctx.beginPath();
       ctx.moveTo(toX(0), toY(hist[0]));
       for (let i = 1; i < hist.length; i++) ctx.lineTo(toX(i), toY(hist[i]));
@@ -79,20 +110,34 @@ export const TrendForecast: React.FC<Props> = ({ forecast, label, color, unit })
       ctx.lineWidth   = 2;
       ctx.lineJoin    = 'round';
       ctx.stroke();
+
+      // Data point glow on latest sample
+      const lastX = toX(hist.length - 1);
+      const lastY = toY(hist[hist.length - 1]);
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
     }
 
-    // Projected dashed line
-    if (displayProj.length > 0) {
-      ctx.setLineDash([6, 3]);
-      ctx.beginPath();
-      ctx.moveTo(toX(hist.length - 1), toY(hist[hist.length - 1]));
-      for (let i = 0; i < displayProj.length; i++) {
-        ctx.lineTo(toX(hist.length + i), toY(displayProj[i]));
+    // Projected dashed line — only up to projT
+    if (displayProj.length > 0 && projT > 0) {
+      const visibleCount = Math.floor(displayProj.length * projT);
+      if (visibleCount > 0) {
+        ctx.setLineDash([6, 3]);
+        ctx.beginPath();
+        ctx.moveTo(toX(hist.length - 1), toY(hist[hist.length - 1]));
+        for (let i = 0; i < visibleCount; i++) {
+          ctx.lineTo(toX(hist.length + i), toY(displayProj[i]));
+        }
+        ctx.strokeStyle = color + 'aa';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
-      ctx.strokeStyle = color + 'aa';
-      ctx.lineWidth   = 1.5;
-      ctx.stroke();
-      ctx.setLineDash([]);
     }
 
     // Axis labels
@@ -119,14 +164,34 @@ export const TrendForecast: React.FC<Props> = ({ forecast, label, color, unit })
     ctx.textAlign  = 'center';
     ctx.fillText('now', toX(hist.length - 1), H - 2);
     ctx.fillText('+15m', toX(hist.length + 225), H - 2);
-  }, [forecast, color, unit]);
+  }, [color, unit]);
 
-  useEffect(() => { draw(); }, [draw]);
+  // Animate the projected line drawing when forecast updates
+  useEffect(() => {
+    if (!forecast) return;
+
+    const proxy = projProgress.current;
+    gsap.killTweensOf(proxy);
+    proxy.t = 0;
+
+    // Draw the static part immediately (history + confidence band at t=0 still looks right)
+    draw(0);
+
+    // Then animate the projection sweeping in
+    gsap.to(proxy, {
+      t: 1,
+      duration: 1.2,
+      ease: 'none',
+      onUpdate: () => draw(proxy.t),
+    });
+
+    return () => { gsap.killTweensOf(proxy); };
+  }, [forecast, draw]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ro = new ResizeObserver(() => draw());
+    const ro = new ResizeObserver(() => draw(projProgress.current.t));
     ro.observe(canvas);
     return () => ro.disconnect();
   }, [draw]);

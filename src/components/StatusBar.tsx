@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import gsap from 'gsap';
 import { Wifi, WifiOff, Loader2, Pencil, Check, X } from 'lucide-react';
 import type { ConnectionStatus, ClassificationResult } from '../types';
 import { CLASSIFICATION_COLORS } from '../config';
@@ -45,6 +46,69 @@ export const StatusBar: React.FC<Props> = ({
 
   const hColor = healthColor(healthScore);
   const cColor = CLASSIFICATION_COLORS[classification.label];
+
+  // ── Health score glow ─────────────────────────────────────────────────────
+  const healthSpanRef = useRef<HTMLSpanElement>(null);
+  const healthProxy   = useRef<{ value: number }>({ value: healthScore });
+  const prevHealthRef = useRef(healthScore);
+  const isFirstHealthRender = useRef(true);
+
+  useEffect(() => {
+    const el = healthSpanRef.current;
+    if (!el) return;
+
+    if (isFirstHealthRender.current) {
+      el.textContent = String(healthScore);
+      healthProxy.current.value = healthScore;
+      prevHealthRef.current = healthScore;
+      isFirstHealthRender.current = false;
+      return;
+    }
+
+    const proxy = healthProxy.current;
+    const prevScore = prevHealthRef.current;
+    const drop = prevScore - healthScore;
+
+    gsap.killTweensOf(proxy);
+    gsap.to(proxy, {
+      value: healthScore,
+      duration: 0.4,
+      ease: 'power1.out',
+      snap: { value: 1 },
+      onUpdate: () => { if (el) el.textContent = String(Math.round(proxy.value)); },
+    });
+
+    // Dramatic shake if health drops >15 points
+    if (drop > 15) {
+      gsap.to(el, { x: -3, duration: 0.05, repeat: 7, yoyo: true, ease: 'none',
+        onComplete: () => { gsap.set(el, { x: 0 }); },
+      });
+    }
+
+    prevHealthRef.current = healthScore;
+    return () => { gsap.killTweensOf(proxy); };
+  }, [healthScore]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Glow class for health score ───────────────────────────────────────────
+  const healthGlowClass =
+    healthScore >= 80 ? 'health-glow-green' :
+    healthScore >= 50 ? 'health-glow-amber' :
+    'health-glow-red';
+
+  // ── Classification badge animate on change ────────────────────────────────
+  const classLabelRef = useRef<HTMLSpanElement>(null);
+  const prevLabelRef  = useRef(classification.label);
+
+  useEffect(() => {
+    if (prevLabelRef.current !== classification.label && classLabelRef.current) {
+      gsap.fromTo(
+        classLabelRef.current,
+        { opacity: 0, y: -6 },
+        { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' },
+      );
+      prevLabelRef.current = classification.label;
+    }
+  }, [classification.label]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,18 +177,30 @@ export const StatusBar: React.FC<Props> = ({
 
       <div className="flex-1" />
 
-      {/* Health score */}
+      {/* Health score with glow */}
       <div className="flex items-baseline gap-1">
         <span className="text-xs text-muted-foreground">Health</span>
-        <span className="font-mono text-lg font-bold" style={{ color: hColor }}>{healthScore}</span>
+        <span
+          ref={healthSpanRef}
+          className={cn('font-mono text-xl font-bold', healthGlowClass)}
+          style={{ color: hColor }}
+        >
+          {healthScore}
+        </span>
         <span className="text-xs text-muted-foreground">/100</span>
       </div>
 
       <Separator orientation="vertical" className="h-5" />
 
-      {/* Classification */}
+      {/* Classification — bold, uppercase, letter-spaced */}
       <div className="flex flex-col items-end">
-        <span className="text-xs font-semibold" style={{ color: cColor }}>{classification.label}</span>
+        <span
+          ref={classLabelRef}
+          className="classification-label"
+          style={{ color: cColor }}
+        >
+          {classification.label}
+        </span>
         <span className="font-mono text-[10px] text-muted-foreground">
           {(classification.confidence * 100).toFixed(0)}% conf
         </span>
