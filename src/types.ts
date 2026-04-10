@@ -19,8 +19,8 @@ export function parsePacket(raw: string): SensorPacket | null {
     const tMatch   = raw.match(/T:([\-\d.]+)C/);
     const pMatch   = raw.match(/P:([\-\d.]+)hPa/);
     const altMatch = raw.match(/Alt:([\-\d.]+)m/);
-    const accMatch = raw.match(/Acc:([\-\d.]+),([\-\d.]+),([\-\d.]+)/);
-    const tiltMatch = raw.match(/Tilt:([\-\d.]+),([\-\d.]+)/);
+    const accMatch = raw.match(/Acc:([\-\d.]+)[,|]([\-\d.]+)[,|]([\-\d.]+)/);
+    const tiltMatch = raw.match(/Tilt:([\-\d.]+)[,|]([\-\d.]+)/);
     const mMatch   = raw.match(/M:(\d+)/);
 
     if (!tMatch || !pMatch || !altMatch || !accMatch || !tiltMatch || !mMatch) return null;
