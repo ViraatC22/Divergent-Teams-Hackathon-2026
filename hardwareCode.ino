@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h> // Required for HTTPS
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 #include <Adafruit_MPU6050.h>
@@ -8,8 +9,10 @@
 // --- Network Settings ---
 const char* ssid     = "ATTSreepada";
 const char* password = "Sreep@d@0415";
-// Replace with your Webhook.site URL or any public endpoint
-const char* serverName = "https://webhook.site/22759280-d4c4-440b-a18b-a199ade63995";
+
+// --- ngrok URL ---
+// IMPORTANT: Use the 'https' URL provided by ngrok and ensure it ends with /data
+const char* serverName = "https://3058-2601-cb-8000-5d0-e186-9a7b-1297-a8b5.ngrok-free.app/data";
 
 Adafruit_BMP280 bmp; 
 Adafruit_MPU6050 mpu;
@@ -35,6 +38,10 @@ void setup() {
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
+    // WiFiClientSecure is needed for HTTPS (ngrok default)
+    WiFiClientSecure client;
+    client.setInsecure(); // Skips certificate validation for easier setup
+
     HTTPClient http;
 
     // 1. Collect Data
@@ -44,28 +51,39 @@ void loop() {
     float pitch = atan2(-a.acceleration.x, sqrt(a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z)) * 180 / M_PI;
     
     // Create the data string
-    char payload[150];
+    char payload[200];
     snprintf(payload, sizeof(payload), 
-             "T:%.1fC,P:%.1fhPa,Alt:%.1fm,Acc:%.1f|%.1f|%.1f,Tilt:%.1f|%.1f,M:%d",
+             "T:%.1fC | P:%.1fhPa | Alt:%.1fm | Acc:%.1f,%.1f,%.1f | Tilt:%.1f,%.1f | M:%d",
              bmp.readTemperature(), (bmp.readPressure()/100.0F), bmp.readAltitude(1013.25),
              a.acceleration.x, a.acceleration.y, a.acceleration.z, roll, pitch, analogRead(moisturePin));
 
     // 2. Send POST Request
-    http.begin(serverName);
-    http.addHeader("Content-Type", "text/plain");
+    Serial.print("Sending to: "); Serial.println(serverName);
     
-    int httpResponseCode = http.POST(payload);
+    if (http.begin(client, serverName)) {
+      http.addHeader("Content-Type", "text/plain");
+      // This header prevents the ngrok landing page from blocking the request
+      http.addHeader("ngrok-skip-browser-warning", "true"); 
+      
+      int httpResponseCode = http.POST(payload);
 
-    // 3. Status Report
-    Serial.print("Data Sent: ");
-    Serial.println(payload);
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
-    
-    http.end();
+      // 3. Status Report
+      if (httpResponseCode > 0) {
+        Serial.print("Data Sent: ");
+        Serial.println(payload);
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+      } else {
+        Serial.print("Error on sending POST: ");
+        Serial.println(httpResponseCode); // -1 usually means SSL/Connection issue
+      }
+      
+      http.end();
+    }
   } else {
-    Serial.println("WiFi Disconnected");
+    Serial.println("WiFi Disconnected. Reconnecting...");
+    WiFi.begin(ssid, password);
   }
 
-  delay(5000); // Send every 5 seconds
+  delay(5000); // Wait 5 seconds before next update
 }
