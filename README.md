@@ -34,6 +34,20 @@ Opens at `http://localhost:5174` (or 5173 if the port is free). In the dashboard
 
 ### 4. Expose the bridge server to the internet (for ESP32)
 
+First, install ngrok — **this is a one-time setup**:
+
+```bash
+brew install ngrok
+```
+
+Then sign up for a free account at [ngrok.com](https://ngrok.com), and authenticate (also one-time):
+
+```bash
+ngrok config add-authtoken <your-token-from-ngrok-dashboard>
+```
+
+Once installed and authenticated, run this each session to create the tunnel:
+
 ```bash
 ngrok http 3001
 ```
