@@ -58,6 +58,7 @@ function makeInitialSnapshot(): AppSnapshot {
 }
 
 // ─── Recommendation templates ─────────────────────────────────────────────────
+// dont change this
 function buildRecommendation(label: ClassificationLabel, kv: Record<string, string>): string {
   switch (label) {
     case 'Drought Risk':
